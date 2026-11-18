@@ -22,7 +22,7 @@
 
 `9053` 还有一个经过 Lean 验证的扇区互换。它用同一个数据坐标双射互换两套校验行，同时保持 syndrome 和稳定子交叠。`distance_eq_fourteen_of_x` 因此只需要 X 校验侧的 36 个锚点。 [扇区互换](ArmillaryLean/Instances/Swap9053.lean)
 
-Lean 定理 `ArmillaryLean.Code9053.distance_eq_fourteen` 证明了 `cssDistance code = 14`。完整验收使用异或剪枝证书核验了全部 36 个 X 侧锚点，并汇总为模块 `ArmillaryLean.Instances.ReducedProof.Code9053.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [完整验收记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018)
+Lean 定理 `ArmillaryLean.Code9053.distance_eq_fourteen` 证明了 `cssDistance code = 14`。完整验收使用异或剪枝证书核验了全部 36 个 X 侧锚点，并汇总为模块 `ArmillaryLean.Instances.ReducedProof.Code9053.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [完整验收记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018) · [定理汇总与公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018/job/134946990731)
 
 ### 约简证书生成与核验
 
