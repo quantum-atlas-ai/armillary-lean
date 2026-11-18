@@ -2,6 +2,18 @@
 
 本仓形式化 Armillary 码的具体实例，首阶段是三个代表实例的距离证书。 [qatlib-dev #553](https://github.com/quantum-atlas-ai/qatlib-dev/issues/553)
 
+| 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
+| --- | ---: | --- | --- |
+| `8749` | 3636 | `d = 12` | 已闭合 |
+| `9053` | 4932 | `d ≤ 14` | X/Z 两侧重量至多 12 的约简锚点排除 |
+| `p181` | 8688 | `d ≤ 16` | X/Z 两侧重量至多 14 的约简锚点排除 |
+
+## 实例 9053 和 p181
+
+两份实例使用同一冻结转录中的 Table S3 和 S4。Lean 验证源路由给出的 CSS 正交性，再通过 Z 校验行内的配对抵消以及块 `0, 1` 的分离向量，证明两个纯 X 逻辑见证给出上界。 [9053 上界](ArmillaryLean/Instances/Code9053.lean) · [p181 上界](ArmillaryLean/Instances/CodeP181.lean)
+
+下界归约证明了翻转交叠超过 6 的重量 12 稳定子行可以严格减重，并保持 syndrome 与稳定子陪集。循环平移将减重后的支撑移到 station-zero 最小锚点，同时保持对每条稳定子行的交叠数。`distance_eq_fourteen_of_anchors` 和 `distance_eq_sixteen_of_anchors` 分别把两侧完整的锚点排除证书合成为目标等式。 [稳定子约简](ArmillaryLean/Certificates/Stabilizer.lean) · [锚点归约](ArmillaryLean/Instances/RoutedAnchors.lean) · [等式接口](ArmillaryLean/Instances/ReducedDistances.lean)
+
 ## 实例 8749
 
 Lean 定理 `ArmillaryLean.Code8749.distance_eq_twelve` 证明了 `cssDistance code = 12`。完整证明入口为 `import ArmillaryLean.Instances.MinProof8749.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [定理源码](ArmillaryLean/Instances/MinProof8749/Exact.lean)
