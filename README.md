@@ -1,6 +1,6 @@
 # Armillary Lean
 
-本仓形式化 Armillary 码的具体实例，首阶段是三个代表实例的距离证书。 [qatlib-dev #553](https://github.com/quantum-atlas-ai/qatlib-dev/issues/553)
+本仓用 Lean 形式化 *Rate-1/2 Quantum LDPC Codes for Multi-tier Superconducting Hardware* 中三个 Armillary 码实例的距离证书。 [arXiv:2611.20410v1](https://arxiv.org/abs/2611.20410v1)
 
 | 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
 | --- | ---: | --- | --- |
@@ -8,9 +8,13 @@
 | `9053` | 4932 | `d ≤ 14` | X 校验侧重量至多 12 的约简锚点内核验收 |
 | `p181` | 8688 | `d ≤ 16` | X/Z 两侧重量至多 14 的约简锚点内核验收 |
 
+## 数据来源
+
+实例参数和逻辑见证与作者的 `Armillary-codes` 仓库提交 `f5a9c17dfa47118b4dd56743d934d98865a2b2e9` 中的数据逐项一致。各目录的 `candidate.json` 记录路由参数，`logical_witness.json` 记录逻辑算符支撑。公开预印本补充材料的 Table S2–S4 给出相同的路由参数。 [8749 数据](https://github.com/Jiaxuan-quantum/Armillary-codes/tree/f5a9c17dfa47118b4dd56743d934d98865a2b2e9/hardware_layouts/data/d12) · [9053 数据](https://github.com/Jiaxuan-quantum/Armillary-codes/tree/f5a9c17dfa47118b4dd56743d934d98865a2b2e9/hardware_layouts/data/d14) · [p181 数据](https://github.com/Jiaxuan-quantum/Armillary-codes/tree/f5a9c17dfa47118b4dd56743d934d98865a2b2e9/hardware_layouts/data/d16)
+
 ## 实例 9053 和 p181
 
-两份实例使用同一冻结转录中的 Table S3 和 S4。Lean 验证源路由给出的 CSS 正交性，再通过 Z 校验行内的配对抵消以及块 `0, 1` 的分离向量，证明两个纯 X 逻辑见证给出上界。 [9053 上界](ArmillaryLean/Instances/Code9053.lean) · [p181 上界](ArmillaryLean/Instances/CodeP181.lean)
+两份实例对应 Table S3 和 S4。Lean 验证源路由给出的 CSS 正交性，再通过 Z 校验行内的配对抵消以及块 `0, 1` 的分离向量，证明两个纯 X 逻辑见证给出上界。 [9053 上界](ArmillaryLean/Instances/Code9053.lean) · [p181 上界](ArmillaryLean/Instances/CodeP181.lean)
 
 下界归约证明了翻转交叠超过 6 的重量 12 稳定子行可以严格减重，并保持 syndrome 与稳定子陪集。循环平移将减重后的支撑移到 station-zero 最小锚点，同时保持对每条稳定子行的交叠数。`distance_eq_fourteen_of_anchors` 和 `distance_eq_sixteen_of_anchors` 分别把两侧完整的锚点排除证书合成为目标等式。 [稳定子约简](ArmillaryLean/Certificates/Stabilizer.lean) · [锚点归约](ArmillaryLean/Instances/RoutedAnchors.lean) · [等式接口](ArmillaryLean/Instances/ReducedDistances.lean)
 
@@ -45,9 +49,9 @@ python3 tools/build_reduced.py P181 --jobs 4
 
 Lean 定理 `ArmillaryLean.Code8749.distance_eq_twelve` 证明了 `cssDistance code = 12`。完整证明入口为 `import ArmillaryLean.Instances.MinProof8749.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [定理源码](ArmillaryLean/Instances/MinProof8749/Exact.lean)
 
-[`Data8749.lean`](ArmillaryLean/Instances/Data8749.lean) 保存 Supplement §1 Table S2 的保留组、通道排列和位移。参数来自 Dev 冻结转录，对应原稿 SHA-256 `8f6f858707d886619011c71c171239e2c410892bf0e819546dbf6efa1d8dc72c`。 [冻结转录](https://github.com/quantum-atlas-ai/qatlib-dev/blob/b78096c6c45bb15622d186cd211e98b979a8323c/TASK/task-ecc-armillary/parameters.json)
+`Data8749.lean` 保存补充材料 Table S2 的保留组、通道排列和位移。数据模块还记录作者的逻辑见证，并证明它包含 12 个互异坐标。 [数据模块](ArmillaryLean/Instances/Data8749.lean)
 
-数据模块记录 #553 给出的候选逻辑算符支撑，并证明它包含 12 个互异坐标。[`Code8749.lean`](ArmillaryLean/Instances/Code8749.lean) 将源参数接到 `Qatlib` 路由，定义 X/Z 校验矩阵，并证明码长为 3636、列重为 3、矩阵关联与路由访问等价，以及访问关系在循环平移下的相容性。
+`Code8749.lean` 将源参数接到 `Qatlib` 路由，定义 X/Z 校验矩阵，并证明码长为 3636、列重为 3、矩阵关联与路由访问等价，以及访问关系在循环平移下的相容性。 [路由与校验矩阵](ArmillaryLean/Instances/Code8749.lean)
 
 [`Css8749.lean`](ArmillaryLean/Instances/Css8749.lean) 核验块配对并构造具体 CSS 码。[`Upper8749.lean`](ArmillaryLean/Instances/Upper8749.lean) 对三个保留 Z 校验组逐一核验支撑的成对抵消，再用块 `0` 和 `3` 上的分离向量排除 X 稳定子行空间，得出 `distance_le_twelve`。
 
@@ -110,3 +114,7 @@ lake --no-build build +Qatlib.Papers.Armillary26.Instances.Routed \
   +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance
 lake build +ArmillaryLean
 ```
+
+## 许可
+
+本仓代码采用 Apache-2.0。来自作者 `Armillary-codes` 仓库的实例参数和逻辑见证附有原 MIT 版权和许可声明。 [Apache-2.0](LICENSE) · [作者 MIT 许可](LICENSES/Armillary-codes-MIT.txt)
