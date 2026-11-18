@@ -52,7 +52,7 @@ def available_checkpoints(words, ends, address, base):
     visit(0, [address], [address], base | (1 << address))
     if len(matches) < 4:
         raise ValueError("insufficient pilot checkpoints")
-    return (matches[len(matches)//4], matches[3*len(matches)//4])
+    return tuple(matches[(2*i+1)*len(matches)//8] for i in range(4))
 
 
 def render(sector, block, channel, base, words, ends, checkpoint, span, path):
@@ -131,17 +131,18 @@ def main():
         ((1 << channel) - 1) << (block * CELL + 4 * i) for i in range(181))
     checkpoints = available_checkpoints(words, ends, address, base)
     sizes = [ends[checkpoint[0]] - checkpoint[0] for checkpoint in checkpoints]
-    order = (800, 1600) if (args.sector == "X") == (args.anchor == 0) else (1600, 800)
-    for span in order:
-        files = [OUT / f"Sample{span}P{i}.lean" for i in range(len(checkpoints))]
+    order = (2, 4) if args.sector == "X" else (4, 2)
+    span = 1600
+    for workers in order:
+        files = [OUT / f"Sample{workers}P{i}.lean" for i in range(len(checkpoints))]
         parts = [render(args.sector, block, channel, base, words, ends, checkpoint, span, file)
                  for checkpoint, file in zip(checkpoints, files)]
-        print(f"CASE {args.sector}{args.anchor:02} fragment={span} sizes={sizes} parts={parts}", flush=True)
+        print(f"CASE {args.sector}{args.anchor:02} fragment={span} workers={workers} sizes={sizes} parts={parts}", flush=True)
         begin = monotonic()
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             list(pool.map(run_file, files))
         elapsed = monotonic() - begin
-        print(f"THROUGHPUT sector={args.sector} anchor={args.anchor} fragment={span} "
+        print(f"THROUGHPUT sector={args.sector} anchor={args.anchor} fragment={span} workers={workers} "
               f"words={sum(sizes)} seconds={elapsed:.2f} words_per_min={sum(sizes)*60/elapsed:.0f}",
               flush=True)
 

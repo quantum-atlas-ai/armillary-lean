@@ -1,4 +1,4 @@
-name: P181 throughput pilot
+name: P181 runner saturation pilot
 
 on:
   workflow_dispatch:
@@ -33,7 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         sector: [X, Z]
-        anchor: [0, 10]
+        anchor: [0]
     env:
       LAKE_ARTIFACT_CACHE: 'true'
       MATHLIB_NO_CACHE_ON_UPDATE: '1'
