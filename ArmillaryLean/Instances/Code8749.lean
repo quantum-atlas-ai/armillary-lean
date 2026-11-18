@@ -16,6 +16,7 @@ namespace ArmillaryLean.Code8749
 open Qatlib.Concepts.CodeCert.PermBlocks (matColWt permBlocks permBlocks_cwt)
 open Qatlib.Papers.Armillary26.Instances (ArmParam armEff armEff_eq_intAct)
 open Qatlib.Papers.Armillary26.Pairing (intAct)
+open scoped Matrix
 
 /-- The internal station and channel coordinate. -/
 abbrev Cell := ZMod 101 × Fin 3
@@ -62,6 +63,13 @@ theorem check_iff (groups : Fin 3 → Fin 12) (r : Check) (v : Coord) :
   obtain ⟨block, cell⟩ := v
   by_cases same : armEff params (groups r.1) block r.2 = cell <;>
     simp [checks, permBlocks, visit, same]
+
+/-- A routed row reads one data coordinate per block. -/
+theorem check_read (groups : Fin 3 → Fin 12) (r : Check) (v : Coord → ZMod 2) :
+    (checks groups *ᵥ v) r = ∑ b : Fin 12, v (visit (groups r.1) r.2 b) := by
+  change (∑ c : Coord, checks groups r c * v c) = _
+  rw [Fintype.sum_prod_type]
+  simp [checks, permBlocks, visit, ite_mul]
 
 /-- Every data coordinate is incident to three checks in either retained sector. -/
 theorem column_weight (groups : Fin 3 → Fin 12) (v : Coord) :

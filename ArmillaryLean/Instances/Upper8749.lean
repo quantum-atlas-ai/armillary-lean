@@ -14,7 +14,6 @@ The support is paired within each retained Z group. The indicator of blocks
 
 namespace ArmillaryLean.Code8749
 
-open Qatlib.Concepts.CodeCert.PermBlocks (permBlocks)
 open Qatlib.Concepts.CodingDecoding.CssTesters
 open Qatlib.Concepts.CodingDecoding.CssTesters.CssCode (cssDistance)
 open Qatlib.Concepts.ErrorCorrection.LogicalOps (distance_le)
@@ -96,13 +95,6 @@ theorem upper_zero : zChecks *ᵥ upperBits = 0 := by
 
 /-- The indicator of the two separating data blocks 0 and 3. -/
 def separator (v : Coord) : ZMod 2 := if v.1 = 0 ∨ v.1 = 3 then 1 else 0
-
-/-- A routed row reads one data coordinate per block. -/
-private theorem check_read (groups : Fin 3 → Fin 12) (r : Check) (v : Coord → ZMod 2) :
-    (checks groups *ᵥ v) r = ∑ b : Fin 12, v (visit (groups r.1) r.2 b) := by
-  change (∑ c : Coord, checks groups r c * v c) = _
-  rw [Fintype.sum_prod_type]
-  simp [checks, permBlocks, visit, ite_mul]
 
 /-- Each X row meets the separator twice, so the separator is in the X-check kernel. -/
 theorem separator_zero : xChecks *ᵥ separator = 0 := by
