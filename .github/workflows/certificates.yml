@@ -1,4 +1,4 @@
-name: Kernel certificates
+name: P181 throughput pilot
 
 on:
   workflow_dispatch:
@@ -25,70 +25,35 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify ${{ inputs.proof }}
+  pilot:
+    name: P181 ${{ matrix.sector }}${{ matrix.anchor }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        sector: [X, Z]
+        anchor: [0, 10]
     env:
-      LAKE_ARTIFACT_CACHE: "true"
-      MATHLIB_NO_CACHE_ON_UPDATE: "1"
-      LEAN_NUM_THREADS: "1"
+      LAKE_ARTIFACT_CACHE: 'true'
+      MATHLIB_NO_CACHE_ON_UPDATE: '1'
+      LEAN_NUM_THREADS: '1'
+      SECTOR: ${{ matrix.sector }}
+      ANCHOR: ${{ matrix.anchor }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-lean
-      - name: Build the library
-        run: lake --fail-fast build +ArmillaryLean
-      - name: Verify the exact 8749 distance
-        if: inputs.proof == '8749-exact'
+      - name: Run paired throughput measurements
         run: |
           set -euo pipefail
-          lake --no-build lean tools/ExportRows8749.lean
-          c++ -O3 -std=c++20 tools/search8749.cpp -o .lake/dist8749/search8749
-          .lake/dist8749/search8749 .lake/dist8749/X.rows 10 0 36 --minimum > .lake/dist8749/MinX.words
-          python3 tools/replay8749.py .lake/dist8749/X.rows .lake/dist8749/MinX.words --budget 10 --minimum
-          python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 2
-          python3 tools/audit_axioms.py ArmillaryLean.Instances.MinProof8749.Exact
-      - name: Verify a reduced anchor
-        if: inputs.proof != '8749-exact'
-        env:
-          PROOF: ${{ inputs.proof }}
-          SECTOR: ${{ inputs.sector }}
-          ANCHOR: ${{ inputs.anchor }}
-        run: |
-          set -euo pipefail
-          case "$PROOF" in
-            9053-anchor) code=9053; p=137; q=3; budget=12; packing=(--xor) ;;
-            p181-anchor) code=P181; p=181; q=4; budget=14; packing=() ;;
-            *) exit 2 ;;
-          esac
-          case "$SECTOR" in
-            X) stabilizers=Z ;;
-            Z) stabilizers=X ;;
-            *) exit 2 ;;
-          esac
-          if ! [[ "$ANCHOR" =~ ^(0|[1-9][0-9]?)$ ]] || (( ANCHOR >= 12 * q )); then
-            echo "Anchor must be an integer from 0 through $((12 * q - 1))."
-            exit 2
-          fi
+          lake --fail-fast build +ArmillaryLean
           lake --no-build lean tools/ExportReducedRows.lean
-          c++ -O3 -std=c++20 tools/search_reduced.cpp -o .lake/reduced/search
-          c++ -O3 -std=c++20 tools/replay_reduced.cpp -o .lake/reduced/replay
-          checks=".lake/reduced/$p-$SECTOR.rows"
-          rows=".lake/reduced/$p-$stabilizers.rows"
-          bin=".lake/reduced/$p-$SECTOR.bin"
-          .lake/reduced/search "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" --binary "${packing[@]}" > "$bin"
-          .lake/reduced/replay "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" "$bin"
-          python3 tools/build_reduced.py "$code" --sector "$SECTOR" --begin "$ANCHOR" --anchors "$ANCHOR" --jobs 2
-          printf -v root 'ArmillaryLean.Instances.ReducedProof.Code%s.%s%02d' "$code" "$SECTOR" "$ANCHOR"
-          python3 tools/audit_axioms.py "$root"
-      - name: Upload certificate build logs
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: kernel-certificate-logs
-          include-hidden-files: true
-          path: |
-            .lake/fast8749/build-logs/*.log
-            .lake/reduced/build-logs/*.log
+          work=.lake/reduced
+          if [[ "$SECTOR" == X ]]; then other=Z; else other=X; fi
+          c++ -O3 -std=c++20 tools/search_reduced.cpp -o "$work/search"
+          c++ -O3 -std=c++20 tools/replay_reduced.cpp -o "$work/replay"
+          "$work/search" "$work/181-$SECTOR.rows" "$work/181-$other.rows" 181 4 14 "$ANCHOR" "$((ANCHOR + 1))" --binary --xor > "$work/pilot.bin"
+          "$work/replay" "$work/181-$SECTOR.rows" "$work/181-$other.rows" 181 4 14 "$ANCHOR" "$((ANCHOR + 1))" "$work/pilot.bin"
+          python3 -B tools/p181_pilot.py "$SECTOR" "$ANCHOR" "$work/pilot.bin"
