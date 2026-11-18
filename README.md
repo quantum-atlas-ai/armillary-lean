@@ -5,14 +5,41 @@
 | 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
 | --- | ---: | --- | --- |
 | `8749` | 3636 | `d = 12` | 已闭合 |
-| `9053` | 4932 | `d ≤ 14` | X/Z 两侧重量至多 12 的约简锚点排除 |
-| `p181` | 8688 | `d ≤ 16` | X/Z 两侧重量至多 14 的约简锚点排除 |
+| `9053` | 4932 | `d ≤ 14` | X 校验侧重量至多 12 的约简锚点内核验收 |
+| `p181` | 8688 | `d ≤ 16` | X/Z 两侧重量至多 14 的约简锚点内核验收 |
 
 ## 实例 9053 和 p181
 
 两份实例使用同一冻结转录中的 Table S3 和 S4。Lean 验证源路由给出的 CSS 正交性，再通过 Z 校验行内的配对抵消以及块 `0, 1` 的分离向量，证明两个纯 X 逻辑见证给出上界。 [9053 上界](ArmillaryLean/Instances/Code9053.lean) · [p181 上界](ArmillaryLean/Instances/CodeP181.lean)
 
 下界归约证明了翻转交叠超过 6 的重量 12 稳定子行可以严格减重，并保持 syndrome 与稳定子陪集。循环平移将减重后的支撑移到 station-zero 最小锚点，同时保持对每条稳定子行的交叠数。`distance_eq_fourteen_of_anchors` 和 `distance_eq_sixteen_of_anchors` 分别把两侧完整的锚点排除证书合成为目标等式。 [稳定子约简](ArmillaryLean/Certificates/Stabilizer.lean) · [锚点归约](ArmillaryLean/Instances/RoutedAnchors.lean) · [等式接口](ArmillaryLean/Instances/ReducedDistances.lean)
+
+`9053` 还有一个经过 Lean 验证的扇区互换。它用同一个数据坐标双射互换两套校验行，同时保持 syndrome 和稳定子交叠。`distance_eq_fourteen_of_x` 因此只需要 X 校验侧的 36 个锚点。 [扇区互换](ArmillaryLean/Instances/Swap9053.lean)
+
+### 约简证书生成与核验
+
+两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂及稳定子交叠四种指令。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。完整的精确等式仍需其余内核检查通过。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
+
+完成本仓默认构建后，可生成两个实例的证书并独立回放。最后两个命令调度正式内核检查，并在全部目标通过后构建相应精确距离模块。大部分运行时间在编号较小的锚点，日志写入 `.lake/reduced/build-logs`。
+
+```bash
+lake --no-build lean tools/ExportReducedRows.lean
+c++ -O3 -std=c++20 tools/search_reduced.cpp -o .lake/reduced/search
+c++ -O3 -std=c++20 tools/replay_reduced.cpp -o .lake/reduced/replay
+for spec in '137 3 12' '181 4 14'; do
+  read -r p q budget <<< "$spec"
+  for pair in 'X Z' 'Z X'; do
+    read -r opposite stabilizers <<< "$pair"
+    O=".lake/reduced/$p-$opposite.rows"
+    S=".lake/reduced/$p-$stabilizers.rows"
+    B=".lake/reduced/$p-$opposite.bin"
+    .lake/reduced/search "$O" "$S" "$p" "$q" "$budget" 0 "$((12*q))" --binary > "$B"
+    .lake/reduced/replay "$O" "$S" "$p" "$q" "$budget" 0 "$((12*q))" "$B"
+  done
+done
+python3 tools/build_reduced.py 9053 --jobs 4
+python3 tools/build_reduced.py P181 --jobs 4
+```
 
 ## 实例 8749
 

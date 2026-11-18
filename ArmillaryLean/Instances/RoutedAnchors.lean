@@ -36,6 +36,11 @@ private theorem bits_support (v : Coord p q → ZMod 2) : bits (support v) = v :
   have hb : ∀ a : ZMod 2, a = 0 ∨ a = 1 := by decide
   rcases hb (v i) with h | h <;> simp [bits, support, h]
 
+/-- The support of the binary indicator is the original finite set. -/
+private theorem support_bits (s : Finset (Coord p q)) : support (bits s) = s := by
+  ext i
+  by_cases hi : i ∈ s <;> simp [support, bits, hi]
+
 omit [NeZero p] in
 /-- Summing a binary indicator counts the intersection modulo two. -/
 private theorem sum_bits (s t : Finset (Coord p q)) :
@@ -182,5 +187,18 @@ theorem distance_ge_of_anchors (a : ArmParam p q) (x z : Fin 3 → Fin 12)
     (zCert : ReducedAnchors a z x (d - 2)) : (d : ℕ∞) ≤ cssDistance c :=
   distance_ge_of_six a x z c hx hz d
     (reduced_zero a x z d even xCert) (reduced_zero a z x d even zCert)
+
+/-- Reduced-anchor exclusions force small reduced support sets to be empty. -/
+theorem reduced_empty (a : ArmParam p q) (stabilizers opposite : Fin 3 → Fin 12)
+    (d : ℕ) (even : d % 2 = 0) (cert : ReducedAnchors a stabilizers opposite (d - 2))
+    (s : Finset (Coord p q)) (hz : ZeroSyndrome (neighbors a opposite) s) (hw : s.card < d)
+    (ho : ∀ r, (s ∩ neighbors a stabilizers r).card ≤ 6) : s = ∅ := by
+  have h := reduced_zero a stabilizers opposite d even cert (bits s)
+    ((zero_bits_iff a opposite s).mp hz)
+    (by simpa only [show bitWeight (bits s) = (support (bits s)).card from rfl, support_bits] using hw)
+    (by simpa only [support_bits] using ho)
+  rw [← support_bits s, h]
+  ext i
+  simp [support]
 
 end ArmillaryLean.Routed
