@@ -118,7 +118,7 @@ lake build +ArmillaryLean
 python3 tools/audit_axioms.py
 ```
 
-GitHub Actions 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。 [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
+`Lean CI` 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。仅改动根目录 `README.md` 时跳过自动构建，也可按需手动触发。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。 [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
 
 ## 许可
 
