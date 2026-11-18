@@ -1,0 +1,94 @@
+name: Kernel certificates
+
+on:
+  workflow_dispatch:
+    inputs:
+      proof:
+        description: Certificate to regenerate and verify
+        required: true
+        type: choice
+        default: 9053-anchor
+        options: [8749-exact, 9053-anchor, p181-anchor]
+      sector:
+        description: Check sector for an anchor run
+        required: true
+        type: choice
+        default: X
+        options: [X, Z]
+      anchor:
+        description: Zero-based anchor number for an anchor run
+        required: true
+        type: string
+        default: "35"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify ${{ inputs.proof }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      LAKE_ARTIFACT_CACHE: "true"
+      MATHLIB_NO_CACHE_ON_UPDATE: "1"
+      LEAN_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lean
+      - name: Build the library
+        run: lake --fail-fast build +ArmillaryLean
+      - name: Verify the exact 8749 distance
+        if: inputs.proof == '8749-exact'
+        run: |
+          set -euo pipefail
+          lake --no-build lean tools/ExportRows8749.lean
+          c++ -O3 -std=c++20 tools/search8749.cpp -o .lake/dist8749/search8749
+          .lake/dist8749/search8749 .lake/dist8749/X.rows 10 0 36 --minimum > .lake/dist8749/MinX.words
+          python3 tools/replay8749.py .lake/dist8749/X.rows .lake/dist8749/MinX.words --budget 10 --minimum
+          python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 2
+          python3 tools/audit_axioms.py ArmillaryLean.Instances.MinProof8749.Exact
+      - name: Verify a reduced anchor
+        if: inputs.proof != '8749-exact'
+        env:
+          PROOF: ${{ inputs.proof }}
+          SECTOR: ${{ inputs.sector }}
+          ANCHOR: ${{ inputs.anchor }}
+        run: |
+          set -euo pipefail
+          case "$PROOF" in
+            9053-anchor) code=9053; p=137; q=3; budget=12 ;;
+            p181-anchor) code=P181; p=181; q=4; budget=14 ;;
+            *) exit 2 ;;
+          esac
+          case "$SECTOR" in
+            X) stabilizers=Z ;;
+            Z) stabilizers=X ;;
+            *) exit 2 ;;
+          esac
+          if ! [[ "$ANCHOR" =~ ^(0|[1-9][0-9]?)$ ]] || (( ANCHOR >= 12 * q )); then
+            echo "Anchor must be an integer from 0 through $((12 * q - 1))."
+            exit 2
+          fi
+          lake --no-build lean tools/ExportReducedRows.lean
+          c++ -O3 -std=c++20 tools/search_reduced.cpp -o .lake/reduced/search
+          c++ -O3 -std=c++20 tools/replay_reduced.cpp -o .lake/reduced/replay
+          checks=".lake/reduced/$p-$SECTOR.rows"
+          rows=".lake/reduced/$p-$stabilizers.rows"
+          bin=".lake/reduced/$p-$SECTOR.bin"
+          .lake/reduced/search "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" --binary > "$bin"
+          .lake/reduced/replay "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" "$bin"
+          python3 tools/build_reduced.py "$code" --sector "$SECTOR" --begin "$ANCHOR" --anchors "$ANCHOR" --jobs 2
+          printf -v root 'ArmillaryLean.Instances.ReducedProof.Code%s.%s%02d' "$code" "$SECTOR" "$ANCHOR"
+          python3 tools/audit_axioms.py "$root"
+      - name: Upload certificate build logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: kernel-certificate-logs
+          include-hidden-files: true
+          path: |
+            .lake/fast8749/build-logs/*.log
+            .lake/reduced/build-logs/*.log

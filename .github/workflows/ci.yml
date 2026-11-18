@@ -1,0 +1,29 @@
+name: Lean CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and audit ArmillaryLean
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      LAKE_ARTIFACT_CACHE: "true"
+      MATHLIB_NO_CACHE_ON_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lean
+      - name: Build the library and its kernel certificate sample
+        run: lake --fail-fast build +ArmillaryLean
+      - name: Audit transitive axioms
+        run: python3 tools/audit_axioms.py

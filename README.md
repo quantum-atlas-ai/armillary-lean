@@ -1,5 +1,7 @@
 # Armillary Lean
 
+[![Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml/badge.svg)](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml)
+
 本仓用 Lean 形式化 *Rate-1/2 Quantum LDPC Codes for Multi-tier Superconducting Hardware* 中三个 Armillary 码实例的距离证书。 [arXiv:2611.20410v1](https://arxiv.org/abs/2611.20410v1)
 
 | 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
@@ -113,7 +115,10 @@ Lean 工具链固定为 `v4.35.0`，`Qatlib` 固定为 `5c88a0b7275769d44542d0a3
 lake --no-build build +Qatlib.Papers.Armillary26.Instances.Routed \
   +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance
 lake build +ArmillaryLean
+python3 tools/audit_axioms.py
 ```
+
+GitHub Actions 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。 [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
 
 ## 许可
 

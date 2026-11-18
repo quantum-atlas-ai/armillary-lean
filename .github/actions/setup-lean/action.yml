@@ -1,0 +1,28 @@
+name: Set up Lean and Qatlib
+description: Install the locked Lean toolchain and restore the public dependency artifacts.
+runs:
+  using: composite
+  steps:
+    - name: Install elan
+      shell: bash
+      run: |
+        set -euo pipefail
+        installer="$RUNNER_TEMP/elan-init.sh"
+        curl --fail --silent --show-error --location --retry 3 \
+          https://raw.githubusercontent.com/leanprover/elan/v4.1.2/elan-init.sh -o "$installer"
+        printf '%s  %s\n' 4bacca9502cb89736fe63d2685abc2947cfbf34dc87673504f1bb4c43eda9264 \
+          "$installer" | sha256sum --check --strict
+        sh "$installer" --default-toolchain none --no-modify-path -y
+        echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+    - name: Restore upstream artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        lean --version
+        deps=(+Qatlib.Papers.Armillary26.Instances.Routed +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance)
+        if ! lake --no-build build "${deps[@]}"; then
+          lake exe get_cache
+          lake --no-build build "${deps[@]}"
+        fi
+        git diff --exit-code -- lean-toolchain lake-manifest.json
