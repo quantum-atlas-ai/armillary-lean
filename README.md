@@ -4,11 +4,13 @@
 
 ## 实例 8749
 
+Lean 定理 `ArmillaryLean.Code8749.distance_eq_twelve` 证明了 `cssDistance code = 12`。完整证明入口为 `import ArmillaryLean.Instances.MinProof8749.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [定理源码](ArmillaryLean/Instances/MinProof8749/Exact.lean)
+
 [`Data8749.lean`](ArmillaryLean/Instances/Data8749.lean) 保存 Supplement §1 Table S2 的保留组、通道排列和位移。参数来自 Dev 冻结转录，对应原稿 SHA-256 `8f6f858707d886619011c71c171239e2c410892bf0e819546dbf6efa1d8dc72c`。 [冻结转录](https://github.com/quantum-atlas-ai/qatlib-dev/blob/b78096c6c45bb15622d186cd211e98b979a8323c/TASK/task-ecc-armillary/parameters.json)
 
 数据模块记录 #553 给出的候选逻辑算符支撑，并证明它包含 12 个互异坐标。[`Code8749.lean`](ArmillaryLean/Instances/Code8749.lean) 将源参数接到 `Qatlib` 路由，定义 X/Z 校验矩阵，并证明码长为 3636、列重为 3、矩阵关联与路由访问等价，以及访问关系在循环平移下的相容性。
 
-[`Css8749.lean`](ArmillaryLean/Instances/Css8749.lean) 核验块配对并构造具体 CSS 码。[`Upper8749.lean`](ArmillaryLean/Instances/Upper8749.lean) 对三个保留 Z 校验组逐一核验支撑的成对抵消，再用块 `0` 和 `3` 上的分离向量排除 X 稳定子行空间，得出 `distance_le_twelve`。精确距离还需要 X/Z 两侧的低重量排除。
+[`Css8749.lean`](ArmillaryLean/Instances/Css8749.lean) 核验块配对并构造具体 CSS 码。[`Upper8749.lean`](ArmillaryLean/Instances/Upper8749.lean) 对三个保留 Z 校验组逐一核验支撑的成对抵消，再用块 `0` 和 `3` 上的分离向量排除 X 稳定子行空间，得出 `distance_le_twelve`。
 
 ## 下界证书
 
@@ -16,11 +18,11 @@
 
 [`Masked.lean`](ArmillaryLean/Certificates/Masked.lean) 证明 512 位分块检查器的接受结果能传递到集合版，后者证明封闭叶与 packing 叶的排除有效。[`Rows8749.lean`](ArmillaryLean/Instances/Rows8749.lean) 的查表数据逐项核对了源路由，[`Anchor8749.lean`](ArmillaryLean/Instances/Anchor8749.lean) 将位掩码中的关联传递回具体源矩阵。
 
-`ArmillaryLean.Code8749.sample_excludes` 验收了 X 校验矩阵在 `(0, (0, 0))` 上重量至多 4 的排除。X/Z 校验矩阵各 36 棵重量上限 10 的候选树已生成并通过独立离线回放。完整的 Lean 内核验收待完成。 [样例证书](ArmillaryLean/Instances/Sample8749.lean)
+`ArmillaryLean.Code8749.sample_excludes` 验收了 X 校验矩阵在 `(0, (0, 0))` 上重量至多 4 的排除，可用于复现分块检查器的行为。 [样例证书](ArmillaryLean/Instances/Sample8749.lean)
 
 在同一 X 校验锚点上，重量上限 4 的集合版与分块版分别约用 26 秒和 16 秒。重量上限 6 的集合版超过 180 秒，分块版约用 91 秒并通过内核验收。重量上限 8 和 10 的分块版分别超过本次设定的 170 秒和 155 秒。耗时包含 Lake 启动。
 
-下列命令重生成候选树。X/Z 是校验矩阵的名称，锚点序号为 `3 * block + channel`。
+下列命令复现最初的双侧候选树和离线回放。X/Z 是校验矩阵的名称，锚点序号为 `3 * block + channel`。
 
 ```bash
 lake --no-build lean tools/ExportRows8749.lean
@@ -46,9 +48,13 @@ lake --no-build lean .lake/dist8749/Probe8749.lean
 
 [`Symmetry8749.lean`](ArmillaryLean/Instances/Symmetry8749.lean) 在源路由上证明了 X、Z 校验图同构。X 校验侧的最小锚点排除因此足以证明精确距离。每个支撑只需考虑块与通道编号最小的锚点，最后一块的三个锚点由单块论证直接排除。
 
-[`Numeric.lean`](ArmillaryLean/Certificates/Numeric.lean) 用自然数位图检查其余锚点。生成的行字表通过 Lean 核验，与源路由逐字相等。重生成重量上限 10 的候选后，可让本仓分模块核对证明片段并合成最终目标。生成的 `HeadX*.lean` 和 `Exact.lean` 保存在本地，由下面的流程复现。
+[`Numeric.lean`](ArmillaryLean/Certificates/Numeric.lean) 用自然数位图检查其余 33 个 X 侧锚点。Lean 内核核验了全部证书以及行字表与源路由的一致性。零 syndrome 的支撑重量必为偶数，因此排除重量至多 10 的非空支撑也排除了重量 11。
+
+完成下文的本地检查后，先导出校验行，再生成最小锚点证书、离线回放，并分模块完成 Lean 构建。`HeadX*.lean` 由脚本在本地生成，`Exact.lean` 是仓库中的证明入口。最后一次构建会输出定理的公理审计。
 
 ```bash
+lake --no-build lean tools/ExportRows8749.lean
+c++ -O3 -std=c++20 tools/search8749.cpp -o .lake/dist8749/search8749
 .lake/dist8749/search8749 .lake/dist8749/X.rows 10 0 36 --minimum > .lake/dist8749/MinX.words
 python3 tools/replay8749.py .lake/dist8749/X.rows .lake/dist8749/MinX.words --budget 10 --minimum
 python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 4
