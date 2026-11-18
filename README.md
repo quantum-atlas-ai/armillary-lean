@@ -7,7 +7,7 @@
 | 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
 | --- | ---: | --- | --- |
 | `8749` | 3636 | `d = 12` | 已闭合 |
-| `9053` | 4932 | `d ≤ 14` | X 校验侧重量至多 12 的约简锚点内核验收 |
+| `9053` | 4932 | `d = 14` | 已闭合 |
 | `p181` | 8688 | `d ≤ 16` | X/Z 两侧重量至多 14 的约简锚点内核验收 |
 
 ## 数据来源
@@ -22,9 +22,11 @@
 
 `9053` 还有一个经过 Lean 验证的扇区互换。它用同一个数据坐标双射互换两套校验行，同时保持 syndrome 和稳定子交叠。`distance_eq_fourteen_of_x` 因此只需要 X 校验侧的 36 个锚点。 [扇区互换](ArmillaryLean/Instances/Swap9053.lean)
 
+Lean 定理 `ArmillaryLean.Code9053.distance_eq_fourteen` 证明了 `cssDistance code = 14`。完整验收使用异或剪枝证书核验了全部 36 个 X 侧锚点，并汇总为模块 `ArmillaryLean.Instances.ReducedProof.Code9053.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [完整验收记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018)
+
 ### 约简证书生成与核验
 
-两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂、稳定子交叠及异或 packing。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。完整的精确等式仍需其余内核检查通过。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
+两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂、稳定子交叠及异或 packing。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。`p181` 的精确等式仍需其余锚点通过内核检查。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
 
 完成本仓默认构建后，可生成两个实例的证书并独立回放。最后两个命令调度正式内核检查，并在全部目标通过后构建相应精确距离模块。大部分运行时间在编号较小的锚点，日志写入 `.lake/reduced/build-logs`。
 
