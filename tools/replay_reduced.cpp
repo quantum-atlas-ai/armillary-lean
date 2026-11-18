@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,52 @@ struct Replay {
     return result;
   }
 
+  void fresh_stamp() {
+    if (++stamp == 0) {
+      std::fill(column_stamp.begin(), column_stamp.end(), 0);
+      std::fill(row_stamp.begin(), row_stamp.end(), 0);
+      ++stamp;
+    }
+  }
+
+  template <typename Columns>
+  bool add_available(const Columns& columns) {
+    for (int col : columns) {
+      if (marked[col]) continue;
+      if (column_stamp[col] == stamp) return false;
+      column_stamp[col] = stamp;
+    }
+    return true;
+  }
+
+  bool packing(int size, bool allow_xor) {
+    if (weight + size <= budget) return false;
+    fresh_stamp();
+    for (int i = 0; i < size; ++i) {
+      const int row = next();
+      if (row < 0 || row >= static_cast<int>(checks.size())) return false;
+      if (!allow_xor) {
+        if (row_stamp[row] == stamp) return false;
+        row_stamp[row] = stamp;
+      }
+      const int second = allow_xor ? next() : 0;
+      if (second < 0 || second > static_cast<int>(checks.size())) return false;
+      if (second == 0) {
+        if (count(checks[row]) % 2 != 1 || !add_available(checks[row])) return false;
+      } else {
+        const auto& first_row = checks[row];
+        const auto& second_row = checks[second - 1];
+        if ((count(first_row) + count(second_row)) % 2 != 1) return false;
+        std::array<int, 24> difference;
+        const auto end = std::set_symmetric_difference(
+            first_row.begin(), first_row.end(), second_row.begin(), second_row.end(),
+            difference.begin());
+        if (!add_available(std::span(difference.begin(), end))) return false;
+      }
+    }
+    return true;
+  }
+
   int next() { return at < words.size() ? words[at++] : -1; }
 
   bool tree(int fuel) {
@@ -56,24 +103,7 @@ struct Replay {
         return arg < static_cast<int>(checks.size()) && count(checks[arg]) % 2 == 1 &&
             std::all_of(checks[arg].begin(), checks[arg].end(), [&](int c) { return marked[c]; });
       case 1:
-        if (weight + arg <= budget || arg > static_cast<int>(checks.size())) return false;
-        if (++stamp == 0) {
-          std::fill(column_stamp.begin(), column_stamp.end(), 0);
-          std::fill(row_stamp.begin(), row_stamp.end(), 0);
-          ++stamp;
-        }
-        for (int i = 0; i < arg; ++i) {
-          const int r = next();
-          if (r < 0 || r >= static_cast<int>(checks.size()) ||
-              row_stamp[r] == stamp || count(checks[r]) % 2 != 1) return false;
-          row_stamp[r] = stamp;
-          for (int c : checks[r]) {
-            if (marked[c]) continue;
-            if (column_stamp[c] == stamp) return false;
-            column_stamp[c] = stamp;
-          }
-        }
-        return true;
+        return arg <= static_cast<int>(checks.size()) && packing(arg, false);
       case 2: {
         if (arg >= static_cast<int>(marked.size()) || marked[arg]) return false;
         marked[arg] = selected[arg] = true;
@@ -87,6 +117,8 @@ struct Replay {
       }
       case 3:
         return arg < static_cast<int>(stabilizers.size()) && count(stabilizers[arg]) > 6;
+      case 4:
+        return packing(arg, true);
       default:
         return false;
     }

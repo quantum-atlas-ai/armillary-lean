@@ -1,5 +1,6 @@
 // Generate untrusted reduced-support exclusion programs for routed Armillary codes.
 // Opcode 3 records a stabilizer row intersecting the current support more than six times.
+// Opcode 4 records a packing of original and pairwise XOR parity rows.
 // Each stdout line contains one complete program in anchor order.
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -17,6 +19,7 @@ std::array<std::array<int, 3>, cols> stabilizers{};
 std::array<int, rows> overlaps{};
 bool outputWords = true;
 bool binaryWords = false;
+bool useXorPacking = false;
 std::array<std::array<int, 12>, rows> neighbors;
 std::array<std::array<int, 3>, cols> checks;
 std::array<bool, cols> marked{};
@@ -96,6 +99,81 @@ void emit_packing(const std::vector<int>& packing) {
   if (outputWords) words.insert(words.end(), packing.begin(), packing.end());
 }
 
+void fresh_stamp() {
+  if (++stamp == 0) {
+    taken.fill(0);
+    ++stamp;
+  }
+}
+
+struct PackingRow {
+  int first;
+  int second;  // -1 denotes an uncombined row.
+  std::vector<int> available;
+};
+
+void append_difference(int first, int second, std::vector<int>& available) {
+  const auto& excluded = neighbors[second];
+  for (int col : neighbors[first]) {
+    if (!marked[col] && std::find(excluded.begin(), excluded.end(), col) == excluded.end()) {
+      available.push_back(col);
+    }
+  }
+}
+
+bool xor_packing(int remaining) {
+  if (static_cast<int>(odds.size()) <= remaining) return false;
+  std::vector<PackingRow> pool;
+  for (int row : odds) {
+    PackingRow plain{row, -1, {}};
+    for (int col : neighbors[row]) if (!marked[col]) plain.available.push_back(col);
+    pool.push_back(std::move(plain));
+
+    // Cancel a column shared by two odd rows using its third, even row.
+    for (int col : neighbors[row]) {
+      if (marked[col]) continue;
+      int even = -1;
+      int active = 0;
+      for (int other : checks[col]) {
+        if (odd[other]) ++active;
+        else even = other;
+      }
+      if (active != 2) continue;
+      PackingRow combined{row, even, {}};
+      append_difference(row, even, combined.available);
+      append_difference(even, row, combined.available);
+      pool.push_back(std::move(combined));
+    }
+  }
+  if (pool.size() == odds.size()) return false;
+  std::vector<int> order(pool.size());
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](int a, int b) {
+    return pool[a].available.size() < pool[b].available.size();
+  });
+  for (int pivot = 0; pivot < static_cast<int>(pool.size()); ++pivot) {
+    if (pool[pivot].second < 0) continue;
+    fresh_stamp();
+    for (int col : pool[pivot].available) taken[col] = stamp;
+    std::vector<int> picked{pivot};
+    for (int index : order) {
+      if (index == pivot) continue;
+      const auto& available = pool[index].available;
+      if (std::any_of(available.begin(), available.end(),
+                      [](int col) { return taken[col] == stamp; })) continue;
+      picked.push_back(index);
+      for (int col : available) taken[col] = stamp;
+      if (static_cast<int>(picked.size()) > remaining) {
+        ++leaves;
+        emit({4, static_cast<int>(picked.size())});
+        for (int i : picked) emit({pool[i].first, pool[i].second + 1});
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool exclude(int remaining) {
   ++nodes;
   for (int r : stabilizers[selected.back()]) if (overlaps[r] > 6) {
@@ -115,10 +193,7 @@ bool exclude(int remaining) {
     if (width == 0) { ++leaves; emit({0, row}); return true; }
     buckets[width].push_back(row);
   }
-  if (++stamp == 0) {
-    taken.fill(0);
-    ++stamp;
-  }
+  fresh_stamp();
   std::vector<int> packing;
   int branch = -1;
   for (int width = 1; width <= 12; ++width) {
@@ -142,6 +217,7 @@ bool exclude(int remaining) {
     emit_packing(packing);
     return true;
   }
+  if (useXorPacking && xor_packing(remaining)) return true;
   std::array<std::vector<int>, 4> candidates;
   for (int col : neighbors[branch]) if (!marked[col]) {
     int score = 0;
@@ -169,8 +245,8 @@ bool exclude(int remaining) {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 8 && argc != 9) {
-    std::cerr << "usage: search_reduced OPPOSITE STABILIZERS STATIONS CHANNELS BUDGET BEGIN END [--count|--binary]\n";
+  if (argc < 8 || argc > 10) {
+    std::cerr << "usage: search_reduced OPPOSITE STABILIZERS STATIONS CHANNELS BUDGET BEGIN END [--count|--binary] [--xor]\n";
     return 2;
   }
   int stations = std::stoi(argv[3]), channels = std::stoi(argv[4]);
@@ -178,11 +254,16 @@ int main(int argc, char** argv) {
   int cell = stations * channels;
   int n = 12 * cell, m = 3 * cell;
   int bound = std::stoi(argv[5]), start = std::stoi(argv[6]), end = std::stoi(argv[7]);
-  const std::string mode = argc == 9 ? argv[8] : "";
+  std::string mode;
+  for (int i = 8; i < argc; ++i) {
+    const std::string option = argv[i];
+    if (option == "--xor" && !useXorPacking) useXorPacking = true;
+    else if ((option == "--count" || option == "--binary") && mode.empty()) mode = option;
+    else return 2;
+  }
   outputWords = mode != "--count";
   binaryWords = mode == "--binary";
-  if (bound < 1 || bound > 14 || start < 0 || start >= end || end > 12 * channels ||
-      (!mode.empty() && mode != "--count" && mode != "--binary")) return 2;
+  if (bound < 1 || bound > 14 || start < 0 || start >= end || end > 12 * channels) return 2;
   std::ifstream input(argv[1]), stab(argv[2]);
   std::array<int, cols> weight{}, stabWeight{};
   for (int row = 0; row < m; ++row) {

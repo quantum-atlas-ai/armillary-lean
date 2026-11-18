@@ -126,6 +126,8 @@ def split_points(words):
             return pos + 2
         if tag == 1:
             return pos + 2 + words[pos + 1]
+        if tag == 4:
+            return pos + 2 + 2 * words[pos + 1]
         if tag == 2:
             mid = parse(pos + 2)
             points[pos] = mid

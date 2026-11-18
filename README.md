@@ -24,7 +24,7 @@
 
 ### 约简证书生成与核验
 
-两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂及稳定子交叠四种指令。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。完整的精确等式仍需其余内核检查通过。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
+两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂、稳定子交叠及异或 packing。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。完整的精确等式仍需其余内核检查通过。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
 
 完成本仓默认构建后，可生成两个实例的证书并独立回放。最后两个命令调度正式内核检查，并在全部目标通过后构建相应精确距离模块。大部分运行时间在编号较小的锚点，日志写入 `.lake/reduced/build-logs`。
 
@@ -34,12 +34,14 @@ c++ -O3 -std=c++20 tools/search_reduced.cpp -o .lake/reduced/search
 c++ -O3 -std=c++20 tools/replay_reduced.cpp -o .lake/reduced/replay
 for spec in '137 3 12' '181 4 14'; do
   read -r p q budget <<< "$spec"
+  packing=()
+  if [[ "$p" == 137 ]]; then packing=(--xor); fi
   for pair in 'X Z' 'Z X'; do
     read -r opposite stabilizers <<< "$pair"
     O=".lake/reduced/$p-$opposite.rows"
     S=".lake/reduced/$p-$stabilizers.rows"
     B=".lake/reduced/$p-$opposite.bin"
-    .lake/reduced/search "$O" "$S" "$p" "$q" "$budget" 0 "$((12*q))" --binary > "$B"
+    .lake/reduced/search "$O" "$S" "$p" "$q" "$budget" 0 "$((12*q))" --binary "${packing[@]}" > "$B"
     .lake/reduced/replay "$O" "$S" "$p" "$q" "$budget" 0 "$((12*q))" "$B"
   done
 done
@@ -119,6 +121,8 @@ python3 tools/audit_axioms.py
 ```
 
 `Lean CI` 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。仅改动根目录 `README.md` 时跳过自动构建，也可按需手动触发。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。 [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
+
+`Exact 9053 distance` 工作流用异或剪枝生成 X 侧的 36 个证书，分片验收后汇总并审计精确距离定理。 [完整 9053 验收](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/exact-9053.yml)
 
 ## 许可
 

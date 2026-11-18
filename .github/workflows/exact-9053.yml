@@ -41,7 +41,7 @@ jobs:
           work=.lake/reduced
           c++ -O3 -std=c++20 tools/search_reduced.cpp -o "$work/search"
           c++ -O3 -std=c++20 tools/replay_reduced.cpp -o "$work/replay"
-          "$work/search" "$work/137-X.rows" "$work/137-Z.rows" 137 3 12 0 36 --binary > "$work/137-X.bin"
+          "$work/search" "$work/137-X.rows" "$work/137-Z.rows" 137 3 12 0 36 --binary --xor > "$work/137-X.bin"
           "$work/replay" "$work/137-X.rows" "$work/137-Z.rows" 137 3 12 0 36 "$work/137-X.bin"
           if [[ "$SCOPE" == smoke ]]; then
             python3 -B tools/ci_9053.py plan --smoke

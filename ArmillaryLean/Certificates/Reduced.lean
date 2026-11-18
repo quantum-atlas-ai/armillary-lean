@@ -1,6 +1,6 @@
 module
 
-public import ArmillaryLean.Certificates.Numeric
+public import ArmillaryLean.Certificates.XorPacking
 
 @[expose] public section
 
@@ -9,7 +9,8 @@ public import ArmillaryLean.Certificates.Numeric
 
 A reduced support meets every stabilizer row in at most six columns.
 The additional leaf checks that the already selected columns exceed this
-limit. All addresses are checked before use, including stabilizer rows.
+limit. Packing leaves may also use pairwise XORs of the parity checks.
+All addresses are checked before use, including stabilizer rows.
 -/
 
 namespace ArmillaryLean.Exclusion.Reduced
@@ -24,12 +25,22 @@ def Excludes (rows stabilizers : Rows Nat Nat) (budget : Nat)
   ∀ ⦃s⦄, Extends chosen marked s → ZeroSyndrome rows s → s.card ≤ budget →
     OverlapSix stabilizers s → False
 
-/-- The original parity leaves, together with a stabilizer overlap leaf. -/
+/-- The parity, stabilizer overlap, and XOR packing leaves with binary splits. -/
 inductive Tree where
   | closed (row : Nat)
   | packing (rows : List Nat)
   | split (column : Nat) (yes no : Tree)
   | overlap (row : Nat)
+  | xorPacking (pairs : List (Nat × Nat))
+
+/-- Parse checked row pairs, with zero denoting an uncombined row. -/
+def parsePairs (nr : Nat) : Nat → List Nat → Option (List (Nat × Nat) × List Nat)
+  | 0, rest => some ([], rest)
+  | n + 1, r :: s :: rest => do
+      if nr ≤ r || nr < s then none else
+        let (pairs, suffix) ← parsePairs nr n rest
+        return ((r, s) :: pairs, suffix)
+  | _, _ => none
 
 /-- Unpack fourteen-bit addresses in little-endian order. -/
 def unpack : Nat → Nat → List Nat
@@ -56,6 +67,9 @@ def parse (nr nc : Nat) : Nat → List Nat → Option (Tree × List Nat)
         return (.split c yes no, suffix)
   | _ + 1, 3 :: r :: rest =>
       if r < nr then some (.overlap r, rest) else none
+  | _ + 1, 4 :: count :: rest => do
+      let (pairs, suffix) ← parsePairs nr count rest
+      return (.xorPacking pairs, suffix)
   | _ + 1, _ => none
 
 /-- Evaluate a reduced certificate, maintaining the chosen columns and their marked bitmap. -/
@@ -68,6 +82,7 @@ def check (checks stabilizers : Nat → Nat) (budget : Nat)
       !marked.testBit c && check checks stabilizers budget (c :: chosen) marked' yes &&
         check checks stabilizers budget chosen marked' no
   | .overlap r => 6 < chosen.countP (stabilizers r).testBit
+  | .xorPacking pairs => XorPacking.check checks budget chosen marked pairs
 
 /-- Reusing the two child exclusions proves the reduced exclusion at a split. -/
 theorem split_excludes {rows stabilizers : Rows Nat Nat} {budget : Nat}
@@ -94,6 +109,9 @@ theorem check_sound {rows stabilizers : Rows Nat Nat} {checkWord stabWord : Nat 
   | packing rs =>
       intro s he hz hw _
       exact sound (.packing rs) (Numeric.check_refines hr (.packing rs) hn hs hm hc) he hz hw
+  | xorPacking pairs =>
+      intro s he hz hw _
+      exact XorPacking.sound hr hn hs hm pairs hc he hz hw
   | split c yes no ih₁ ih₂ =>
       obtain ⟨hleft, hno⟩ := Bool.and_eq_true_iff.mp hc
       obtain ⟨hfresh, hyes⟩ := Bool.and_eq_true_iff.mp hleft

@@ -59,8 +59,8 @@ jobs:
         run: |
           set -euo pipefail
           case "$PROOF" in
-            9053-anchor) code=9053; p=137; q=3; budget=12 ;;
-            p181-anchor) code=P181; p=181; q=4; budget=14 ;;
+            9053-anchor) code=9053; p=137; q=3; budget=12; packing=(--xor) ;;
+            p181-anchor) code=P181; p=181; q=4; budget=14; packing=() ;;
             *) exit 2 ;;
           esac
           case "$SECTOR" in
@@ -78,7 +78,7 @@ jobs:
           checks=".lake/reduced/$p-$SECTOR.rows"
           rows=".lake/reduced/$p-$stabilizers.rows"
           bin=".lake/reduced/$p-$SECTOR.bin"
-          .lake/reduced/search "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" --binary > "$bin"
+          .lake/reduced/search "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" --binary "${packing[@]}" > "$bin"
           .lake/reduced/replay "$checks" "$rows" "$p" "$q" "$budget" "$ANCHOR" "$((ANCHOR + 1))" "$bin"
           python3 tools/build_reduced.py "$code" --sector "$SECTOR" --begin "$ANCHOR" --anchors "$ANCHOR" --jobs 2
           printf -v root 'ArmillaryLean.Instances.ReducedProof.Code%s.%s%02d' "$code" "$SECTOR" "$ANCHOR"
