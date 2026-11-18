@@ -1,3 +1,9 @@
 /.lake/
 /.qatlib-env.local.toml
 /AGENTS.local.md
+/ArmillaryLean/Instances/MinProof8749/Head*.lean
+/ArmillaryLean/Instances/MinProof8749/Exact.lean
+/ArmillaryLean/Instances/MinProof8749/LateZ.lean
+/ArmillaryLean/Instances/MinProof8749/TailZ.lean
+/ArmillaryLean/Instances/WordData8749/Z.lean
+/tools/__pycache__/

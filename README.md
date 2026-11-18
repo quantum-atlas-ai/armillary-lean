@@ -42,6 +42,18 @@ lake --no-build lean .lake/dist8749/Probe8749.lean
 
 渲染时加 `--fragment-words 20` 会在实际分支处切开同一份样例。Lean 独立核验各片段，并用已证明的分支组合定理得出根状态的排除结果。重量上限 6 的样例使用 `--fragment-words 100` 复现，约用 53 秒通过内核验收。重量上限 10 的实际证书切分后，首个独立片段约用 12 秒通过内核验收，整个锚点仍超过本次设定的 155 秒。
 
+### 最小锚点与数值验收
+
+[`Symmetry8749.lean`](ArmillaryLean/Instances/Symmetry8749.lean) 在源路由上证明了 X、Z 校验图同构。X 校验侧的最小锚点排除因此足以证明精确距离。每个支撑只需考虑块与通道编号最小的锚点，最后一块的三个锚点由单块论证直接排除。
+
+[`Numeric.lean`](ArmillaryLean/Certificates/Numeric.lean) 用自然数位图检查其余锚点。生成的行字表通过 Lean 核验，与源路由逐字相等。重生成重量上限 10 的候选后，可让本仓分模块核对证明片段并合成最终目标。生成的 `HeadX*.lean` 和 `Exact.lean` 保存在本地，由下面的流程复现。
+
+```bash
+.lake/dist8749/search8749 .lake/dist8749/X.rows 10 0 36 --minimum > .lake/dist8749/MinX.words
+python3 tools/replay8749.py .lake/dist8749/X.rows .lake/dist8749/MinX.words --budget 10 --minimum
+python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 4
+```
+
 ## 本地检查
 
 Lean 工具链固定为 `v4.35.0`，`Qatlib` 固定为 `5c88a0b7275769d44542d0a371a5af8f8841cbae`。本仓用 Lake 检查 `ArmillaryLean`，并消费上游的预编译制品。首次检出时先准备锁定版本的依赖缓存。 [Qatlib 缓存指南](https://github.com/quantum-atlas-ai/qatlib/blob/5c88a0b7275769d44542d0a371a5af8f8841cbae/docs/getting-started.md)

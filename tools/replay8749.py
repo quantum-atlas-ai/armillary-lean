@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 
-def verify(neighbors, words, budget, anchor):
+def verify(neighbors, words, budget, anchor, minimum):
     cursor = 0
 
     def word():
@@ -44,7 +44,10 @@ def verify(neighbors, words, budget, anchor):
         return False
 
     column = (anchor // 3) * 303 + anchor % 3
-    return replay({column}, {column}) and cursor == len(words)
+    marked = {column}
+    if minimum:
+        marked.update(c for c in range(3636) if (c // 303) * 3 + c % 3 < anchor)
+    return replay({column}, marked) and cursor == len(words)
 
 
 def main():
@@ -54,6 +57,7 @@ def main():
     parser.add_argument("--budget", type=int, required=True)
     parser.add_argument("--begin", type=int, default=0)
     parser.add_argument("--end", type=int, default=36)
+    parser.add_argument("--minimum", action="store_true")
     args = parser.parse_args()
     if not 0 <= args.begin < args.end <= 36:
         parser.error("expected a nonempty anchor range within 0–36")
@@ -67,7 +71,7 @@ def main():
             if anchor >= args.end or any(not 0 <= word < 4096 for word in words):
                 parser.error(f"out-of-range data at anchor {anchor}")
             try:
-                accepted = verify(neighbors, words, args.budget, anchor)
+                accepted = verify(neighbors, words, args.budget, anchor, args.minimum)
             except (IndexError, RecursionError):
                 accepted = False
             if not accepted:

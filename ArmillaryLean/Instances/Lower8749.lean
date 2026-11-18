@@ -142,4 +142,47 @@ theorem all_anchors (groups : Fin 3 → Fin 12)
   rw [Finset.card_map]
   omega
 
+/-- The lexicographic block and channel rank, independent of station. -/
+def anchorRank (v : Coord) : Nat := 3 * v.1.val + v.2.2.val
+
+/-- It suffices to check anchors of minimum block and channel rank in their support. -/
+theorem all_min_anchors (groups : Fin 3 → Fin 12)
+    (hex : ∀ (b : Fin 12) (j : Fin 3) (s : Finset Coord),
+      (b, (0, j)) ∈ s → (∀ v ∈ s, anchorRank (b, (0, j)) ≤ anchorRank v) →
+      ZeroSyndrome (neighbors groups) s → s.card ≤ 10 → False)
+    (s : Finset Coord) (hz : ZeroSyndrome (neighbors groups) s) (hw : s.card ≤ 11) : s = ∅ := by
+  by_contra hne
+  obtain ⟨⟨b, i, j⟩, hc, hmin⟩ := Finset.exists_min_image s anchorRank
+    (Finset.nonempty_iff_ne_empty.mpr hne)
+  have hm := Finset.mem_map_of_mem (dataShift (-i)).toEmbedding hc
+  have ha : (b, (0, j)) ∈ s.map (dataShift (-i)).toEmbedding := by
+    simpa [dataShift, cellShift] using hm
+  have hcard := card_even groups s hz
+  refine hex b j _ ha ?_ (zero_shift groups s (-i) hz) ?_
+  · intro v hv
+    obtain ⟨u, hu, rfl⟩ := Finset.mem_map.mp hv
+    exact hmin u hu
+  · rw [Finset.card_map]
+    omega
+
+/-- A nonempty support contained in one block meets some routed check exactly once. -/
+theorem single_block_excluded (groups : Fin 3 → Fin 12) (v : Coord) (s : Finset Coord)
+    (hv : v ∈ s) (hb : ∀ w ∈ s, w.1 = v.1) (hz : ZeroSyndrome (neighbors groups) s) : False := by
+  let r : Check := (0, (Qatlib.Papers.Armillary26.Instances.armEff params (groups 0) v.1).symm v.2)
+  have hvisit : visit (groups r.1) r.2 v.1 = v := by
+    let e := Qatlib.Papers.Armillary26.Instances.armEff params (groups 0) v.1
+    change (v.1, e (e.symm v.2)) = v
+    rw [Equiv.apply_symm_apply]
+  have hfilter : ((neighbors groups r).filter fun c => c ∈ s) = {v} := by
+    ext w
+    simp only [Finset.mem_filter, Finset.mem_singleton, mem_neighbors, check_iff]
+    constructor
+    · intro ⟨hcheck, hw⟩
+      rw [hb w hw] at hcheck
+      exact hcheck.symm.trans hvisit
+    · rintro rfl
+      exact ⟨hvisit, hv⟩
+  apply hz r
+  simp [OddRow, hfilter]
+
 end ArmillaryLean.Code8749

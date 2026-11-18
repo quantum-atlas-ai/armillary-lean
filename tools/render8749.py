@@ -29,7 +29,7 @@ def column(address):
     return f"({block}, ({station}, {channel}))"
 
 
-def fragments(words, sector, budget, anchor, limit):
+def split_points_of(words):
     split_points = {}
 
     def endpoint(start):
@@ -47,6 +47,11 @@ def fragments(words, sector, budget, anchor, limit):
 
     if endpoint(0) != len(words):
         raise ValueError("expected one full tree")
+    return split_points
+
+
+def fragments(words, sector, budget, anchor, limit):
+    split_points = split_points_of(words)
     declarations = []
 
     def emit(start, end, selected, decided):

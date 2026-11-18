@@ -1,9 +1,10 @@
 // Generate untrusted exclusion-program words for the frozen 8749 instance.
-// Usage: search8749 ROWS BUDGET BEGIN_ANCHOR END_ANCHOR
+// Usage: search8749 ROWS BUDGET BEGIN_ANCHOR END_ANCHOR [--minimum]
 // Each stdout line contains one complete program in anchor order.
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -39,6 +40,52 @@ void toggle(int col) {
   }
 }
 
+bool independent(uint32_t candidates, int need, const std::array<uint32_t, 32>& conflict,
+                 std::vector<int>& witness) {
+  if (need == 0) return true;
+  while (std::popcount(candidates) >= need) {
+    int chosen = 0;
+    int fewest_conflicts = 33;
+    for (uint32_t scan = candidates; scan; scan &= scan - 1) {
+      int index = std::countr_zero(scan);
+      int count = std::popcount(conflict[index] & candidates);
+      if (count < fewest_conflicts) {
+        chosen = index;
+        fewest_conflicts = count;
+      }
+    }
+    candidates &= ~(uint32_t{1} << chosen);
+    witness.push_back(odds[chosen]);
+    if (independent(candidates & ~conflict[chosen], need - 1, conflict, witness)) return true;
+    witness.pop_back();
+    if (fewest_conflicts == 0) return false;
+  }
+  return false;
+}
+
+bool strong_packing(int remaining, std::vector<int>& witness) {
+  int count = odds.size();
+  if (count <= remaining || count >= 32) return false;
+  std::array<uint32_t, 32> conflict{};
+  for (int index = 0; index < count; ++index) {
+    for (int column : neighbors[odds[index]]) {
+      if (marked[column]) continue;
+      for (int other : checks[column]) {
+        if (odd[other] && location[other] != index) {
+          conflict[index] |= uint32_t{1} << location[other];
+        }
+      }
+    }
+  }
+  return independent((uint32_t{1} << count) - 1, remaining + 1, conflict, witness);
+}
+
+void emit_packing(const std::vector<int>& packing) {
+  ++leaves;
+  words.insert(words.end(), {1, static_cast<int>(packing.size())});
+  words.insert(words.end(), packing.begin(), packing.end());
+}
+
 bool exclude(int remaining) {
   ++nodes;
   if (odds.empty()) {
@@ -67,12 +114,15 @@ bool exclude(int remaining) {
       for (int col : neighbors[row]) if (!marked[col]) taken[col] = stamp;
       packing.push_back(row);
       if (static_cast<int>(packing.size()) > remaining) {
-        ++leaves;
-        words.insert(words.end(), {1, static_cast<int>(packing.size())});
-        words.insert(words.end(), packing.begin(), packing.end());
+        emit_packing(packing);
         return true;
       }
     }
+  }
+  packing.clear();
+  if (strong_packing(remaining, packing)) {
+    emit_packing(packing);
+    return true;
   }
   std::array<std::vector<int>, 4> candidates;
   for (int col : neighbors[branch]) if (!marked[col]) {
@@ -99,8 +149,9 @@ bool exclude(int remaining) {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
-    std::cerr << "usage: search8749 ROWS BUDGET BEGIN_ANCHOR END_ANCHOR\n";
+  const bool minimum = argc == 6 && std::string(argv[5]) == "--minimum";
+  if (argc != 5 && !minimum) {
+    std::cerr << "usage: search8749 ROWS BUDGET BEGIN_ANCHOR END_ANCHOR [--minimum]\n";
     return 2;
   }
   std::ifstream input(argv[1]);
@@ -114,6 +165,9 @@ int main(int argc, char** argv) {
   int start = std::stoi(argv[3]), end = std::stoi(argv[4]);
   if (bound < 1 || bound > 10 || start < 0 || start >= end || end > 36) return 2;
   for (int anchor = start; anchor < end; ++anchor) {
+    if (minimum) {
+      for (int c = 0; c < cols; ++c) marked[c] = (c / 303) * 3 + c % 3 < anchor;
+    }
     int col = (anchor / 3) * 303 + (anchor % 3);
     selected.push_back(col);
     marked[col] = true;
