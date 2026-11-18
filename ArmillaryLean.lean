@@ -1,3 +1,3 @@
 module
 
-public import ArmillaryLean.Instances.Code8749
+public import ArmillaryLean.Instances.Upper8749
