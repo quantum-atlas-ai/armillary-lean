@@ -144,7 +144,7 @@ python3 tools/frozen_9053.py audit .lake/frozen-9053/9053-proof-v1.tar.zst
 gh workflow run exact-9053.yml --ref "$(git branch --show-current)" -f scope=artifact-audit
 ```
 
-普通 `full` 验收仍可用来独立重编证书。 [固化的 9053 证明包](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/proof-9053-v1)
+普通 `full` 验收仍可用来独立重编证书。 [固化的 9053 证明包](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/proof-9053-v1) · [产物恢复与公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44451282907)
 
 ## 许可
 
