@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: Verify all X anchors or test the shard transfer with two anchors
+        description: Build the exact proof, test the shard transfer, or audit the frozen proof
         type: choice
         required: true
         default: full
-        options: [full, smoke]
+        options: [full, smoke, artifact-audit]
 
 permissions:
   contents: read
@@ -20,6 +20,7 @@ env:
 
 jobs:
   prepare:
+    if: inputs.scope != 'artifact-audit'
     name: Generate and replay certificate data
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -174,3 +175,28 @@ jobs:
           fail-on-cache-miss: true
       - name: Link and audit the verified Lean modules
         run: python3 -B tools/ci_9053.py assemble
+
+  artifact-audit:
+    if: inputs.scope == 'artifact-audit'
+    name: Restore and audit the frozen 9053 proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lean
+      - name: Download the pinned proof release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          lock=artifacts/9053.json
+          work=.lake/frozen-9053
+          gh release download "$(jq -er .release "$lock")" --repo "$GITHUB_REPOSITORY"             --pattern "$(jq -er .archive "$lock")" --dir "$work"
+      - name: Verify the exact claim and audit axioms without rebuilding
+        run: |
+          set -euo pipefail
+          archive="$(jq -er .archive artifacts/9053.json)"
+          python3 -B tools/frozen_9053.py audit ".lake/frozen-9053/$archive"
