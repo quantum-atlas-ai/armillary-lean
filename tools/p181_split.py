@@ -329,10 +329,19 @@ def join(args, manifest):
             name = EXACT
             theorem = "ArmillaryLean.CodeP181.distance_eq_sixteen"
         else:
-            imports = "".join(f"import {PREFIX}.{a}\n" for a in SMOKE)
-            source = (f"module\n\n{imports}\nopen ArmillaryLean.CodeP181\n\n"
-                      "def auditedAnchors := And.intro X28.verified Z28.verified\n\n"
-                      "#print axioms auditedAnchors\n")
+            imports = "".join(f"public import {PREFIX}.{a}\n" for a in SMOKE)
+            source = f"""module
+
+{imports}
+open ArmillaryLean.CodeP181
+
+/-- Both pilot anchors assemble from the audited public modules. -/
+public theorem auditedAnchors :
+    (fun {{p : Prop}} (_ : p) => p) (And.intro X28.verified Z28.verified) :=
+  And.intro X28.verified Z28.verified
+
+#print axioms auditedAnchors
+"""
             name = "P181AuditSmoke"
             theorem = "auditedAnchors"
         source = source.replace("module\n", "module\n\nmeta import Lean\n", 1)
