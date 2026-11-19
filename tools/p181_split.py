@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from platform import machine, system
 import re
-from shutil import copy2
+from shutil import copy2, disk_usage
 import subprocess
 import tarfile
 from tempfile import TemporaryDirectory
@@ -223,7 +223,8 @@ def load_manifest(directory, expected):
     found = sorted(anchor for part in manifest["parts"] for anchor in part["anchors"])
     if found != sorted(anchors(manifest["scope"])):
         raise ValueError("anchor coverage mismatch")
-    if [part["id"] for part in manifest["parts"]] != list(range(len(manifest["parts"]))):
+    shard_count = 2 if manifest["scope"] == "smoke" else 16
+    if [part["id"] for part in manifest["parts"]] != list(range(shard_count)):
         raise ValueError("invalid shard numbering")
     if manifest["common"]["archive"] != COMMON:
         raise ValueError("unexpected shared archive name")
@@ -270,7 +271,7 @@ def unpack(directory, entry, into):
 
 def audit(args, manifest):
     part = manifest["parts"][args.shard]
-    imports = [f"{PREFIX}.{anchor}" for anchor in part["anchors"]]
+    imports = [*manifest["common"]["modules"], *part["modules"]]
     receipt_dir = args.out.resolve()
     receipt_dir.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as tmp:
@@ -278,6 +279,10 @@ def audit(args, manifest):
         shared, proof = root / "common", root / "proof"
         unpack(args.directory, manifest["common"], shared)
         unpack(args.directory, part, proof)
+        unpacked = sum(
+            p.stat().st_size for folder in (shared, proof) for p in folder.rglob("*") if p.is_file())
+        print(f"Auditing {len(imports)} modules with {unpacked:,} unpacked bytes. "
+              f"Temporary disk has {disk_usage(root).free:,} free bytes.", flush=True)
         source = root / "P181ShardAudit.lean"
         source.write_text("module\n\nmeta import Lean\n" +
                           "".join(f"import all {name}\n" for name in imports) + AUDIT)
