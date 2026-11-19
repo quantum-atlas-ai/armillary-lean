@@ -75,6 +75,7 @@ def pack(archive, inputs, revision, verified_run):
     if archive.exists():
         raise ValueError(f"archive already exists: {archive}")
     archive.parent.mkdir(parents=True, exist_ok=True)
+    print("Regenerating the certificate sources for the recorded inputs", flush=True)
     regenerate(inputs)
     with TemporaryDirectory(dir=archive.parent, prefix="staging-") as temporary:
         staging = Path(temporary)
@@ -83,7 +84,9 @@ def pack(archive, inputs, revision, verified_run):
         for name in INPUTS:
             copy2(inputs / name, payload / "inputs" / name)
         mapping = staging / "targets.jsonl"
+        print("Checking the exact proof and collecting its cache mappings", flush=True)
         verify_exact(staging, mapping)
+        print("Staging the mapped Lake artifacts", flush=True)
         run("lake", "cache", "stage", str(mapping), str(payload / "lake-cache"))
         manifest = {
             "format": 1,
@@ -96,6 +99,7 @@ def pack(archive, inputs, revision, verified_run):
         }
         (payload / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         packed = staging / "archive.tar.zst"
+        print("Compressing the proof bundle", flush=True)
         run("tar", "--sort=name", "--mtime=@0", "--owner=0", "--group=0", "--numeric-owner",
             "--hard-dereference", "-I", "zstd -3 -T2", "-C", str(payload),
             "-cf", str(packed), "manifest.json", "inputs", "lake-cache")

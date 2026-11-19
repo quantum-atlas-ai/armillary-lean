@@ -63,6 +63,7 @@ jobs:
             .lake/reduced/ci9053-plan.json
 
   verify:
+    if: inputs.scope != 'artifact-audit'
     name: Kernel shard ${{ matrix.shard }}
     needs: prepare
     runs-on: ubuntu-24.04
@@ -90,6 +91,7 @@ jobs:
           key: 9053-kernel-${{ github.run_id }}-${{ matrix.shard }}
 
   assemble:
+    if: inputs.scope != 'artifact-audit'
     name: Assemble and audit checked certificates
     needs: verify
     runs-on: ubuntu-24.04
