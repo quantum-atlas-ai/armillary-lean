@@ -164,7 +164,10 @@ def common_modules(out):
     for path in proof_paths(names):
         target = out / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        copy2(BUILD / "lib/lean" / path, target)
+        with TemporaryDirectory(dir=target.parent, prefix="shared-") as tmp:
+            staged = Path(tmp) / target.name
+            copy2(BUILD / "lib/lean" / path, staged)
+            staged.replace(target)
     return sorted(names)
 
 
