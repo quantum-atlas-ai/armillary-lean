@@ -181,9 +181,12 @@ def local(args):
     bundle.mkdir(parents=True, exist_ok=True)
     groups = split_plan(args.scope, work)
     sources = {anchor: modules_for(anchor) for group in groups for anchor in group}
-    stamp = json.dumps(metadata, sort_keys=True) + digest(work / "inputs.sha256")
     run("lake", "build", *(f"+{name}" for name in [DISTANCES, *TABLES]))
     common = common_modules(out)
+    shared_hashes = {str(path): digest(out / path) for path in proof_paths(common)}
+    stamp = json.dumps([metadata["toolchain"], metadata["lake_manifest_sha256"],
+                        metadata["platform"], shared_hashes], sort_keys=True)
+    stamp += digest(work / "inputs.sha256")
     env = get_env([out])
     bases = [mods[0] for mods in sources.values()]
     pages = [page for mods in sources.values() for page in mods[1:-1]]
@@ -191,7 +194,10 @@ def local(args):
     print(f"Compiling {len(pages)} certificate pages", flush=True)
     compile_modules(pages, out, env, stamp, args.workers, 1200)
     print(f"Assembling {len(sources)} anchors", flush=True)
-    compile_modules([mods[-1] for mods in sources.values()], out, env, stamp, 3, 2400)
+    anchor_state = stamp + "".join(
+        (out / module_path(name).with_suffix(".ready")).read_text()
+        for name in [*bases, *pages])
+    compile_modules([mods[-1] for mods in sources.values()], out, env, anchor_state, 3, 2400)
     manifest = {"format": 1, **metadata, "scope": args.scope, "parts": []}
     manifest["inputs_sha256"] = {p.name: digest(p) for p in sorted(work.glob("181-*.rows"))}
     manifest["inputs_sha256"].update({p.name: digest(p) for p in sorted(work.glob("181-*.bin"))})
@@ -219,6 +225,23 @@ def load_manifest(directory, expected):
         raise ValueError("anchor coverage mismatch")
     if [part["id"] for part in manifest["parts"]] != list(range(len(manifest["parts"]))):
         raise ValueError("invalid shard numbering")
+    if manifest["common"]["archive"] != COMMON:
+        raise ValueError("unexpected shared archive name")
+    for module in manifest["common"]["modules"]:
+        if not re.fullmatch(r"ArmillaryLean(?:\.[A-Za-z_][A-Za-z0-9_]*)+", module):
+            raise ValueError("unexpected shared module")
+        if module.startswith(PREFIX + ".") and module not in TABLES:
+            raise ValueError("a proof module appears in the shared archive")
+    for part in manifest["parts"]:
+        if part["archive"] != f"p181-shard-{part['id']:02d}.tar.zst":
+            raise ValueError("unexpected shard archive name")
+        roots = {f"{PREFIX}.{anchor}" for anchor in part["anchors"]}
+        if not roots.issubset(part["modules"]) or len(part["modules"]) != len(set(part["modules"])):
+            raise ValueError("unexpected or missing anchor modules")
+        for module in part["modules"]:
+            root, _, suffix = module.rpartition(".")
+            if module not in roots and (root not in roots or not re.fullmatch(r"Base|Page\d+", suffix)):
+                raise ValueError(f"unexpected proof module {module}")
     return manifest
 
 
