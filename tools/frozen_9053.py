@@ -115,6 +115,7 @@ def unpack(archive, destination):
         try:
             with tarfile.open(fileobj=decoder.stdout, mode="r|") as bundle:
                 bundle.extractall(destination, filter=safe_member)
+            decoder.stdout.read()
         except BaseException:
             decoder.terminate()
             raise

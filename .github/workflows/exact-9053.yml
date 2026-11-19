@@ -194,7 +194,9 @@ jobs:
           set -euo pipefail
           lock=artifacts/9053.json
           work=.lake/frozen-9053
-          gh release download "$(jq -er .release "$lock")" --repo "$GITHUB_REPOSITORY"             --pattern "$(jq -er .archive "$lock")" --dir "$work"
+          tag="$(jq -er .release "$lock")"
+          archive="$(jq -er .archive "$lock")"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$archive" --dir "$work"
       - name: Verify the exact claim and audit axioms without rebuilding
         run: |
           set -euo pipefail
