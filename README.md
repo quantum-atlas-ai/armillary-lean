@@ -126,6 +126,26 @@ python3 tools/audit_axioms.py
 
 `Exact 9053 distance` 工作流用异或剪枝生成 X 侧的 36 个证书，分片验收后汇总并审计精确距离定理。 [完整 9053 验收](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/exact-9053.yml)
 
+### 复用已通过内核验收的 9053 产物
+
+发布包包含校验行、证书流以及最终定理及其依赖的 Lake 构建产物。`artifacts/9053.json` 锁定发布版本、包的 SHA-256、证明源码提交和原验收运行。审计任务校验包的 SHA-256 和输入清单，恢复 `.olean`，检查最终定理的类型，并审计传递公理。所有证书模块都要求已可用，`lake --no-build` 核对当前证明源码及依赖与产物是否匹配。
+
+如需固化本地已编完的新版证书，先用上文的生成、回放和构建命令完成验收，再运行打包命令。打包要求生成器的默认切片和分页设置，默认从 `.lake/reduced` 读取输入，可用 `--inputs` 指向其他目录。
+
+```bash
+python3 tools/frozen_9053.py pack .lake/frozen-9053/9053-proof-v2.tar.zst
+```
+
+把新包上传到独立的 GitHub Release，更新 `artifacts/9053.json` 后即可手动运行云端审计。对于本地构建的发布包，`verified_run` 设为 `null`。当前版本可用下列命令复核。
+
+```bash
+gh release download proof-9053-v1 --pattern 9053-proof-v1.tar.zst --dir .lake/frozen-9053
+python3 tools/frozen_9053.py audit .lake/frozen-9053/9053-proof-v1.tar.zst
+gh workflow run exact-9053.yml -f scope=artifact-audit
+```
+
+普通 `full` 验收仍可用来独立重编证书。 [固化的 9053 证明包](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/proof-9053-v1)
+
 ## 许可
 
 本仓代码采用 Apache-2.0。来自作者 `Armillary-codes` 仓库的实例参数和逻辑见证附有原 MIT 版权和许可声明。 [Apache-2.0](LICENSE) · [作者 MIT 许可](LICENSES/Armillary-codes-MIT.txt)

@@ -129,7 +129,10 @@ def audit(archive, lock, staging):
     if sha256(archive) != expected["sha256"]:
         raise ValueError("archive SHA-256 does not match the proof lock")
     print(f"Verified archive SHA-256 {expected['sha256']}", flush=True)
-    assert_source_revision(expected["proof_commit"])
+    revision = expected["proof_commit"]
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("invalid proof commit in lock")
+    run("git", "cat-file", "-e", f"{revision}^{{commit}}")
     with TemporaryDirectory(dir=staging, prefix="restore-") as temporary:
         root = Path(temporary)
         unpack(archive, root)
