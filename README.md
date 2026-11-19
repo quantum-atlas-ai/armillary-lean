@@ -2,7 +2,7 @@
 
 [![Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml/badge.svg)](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml)
 
-本仓用 Lean 形式化 *Rate-1/2 Quantum LDPC Codes for Multi-tier Superconducting Hardware* 中三个 Armillary 码实例的距离证书。 [arXiv:2611.20410v1](https://arxiv.org/abs/2611.20410v1)
+本仓用 Lean 形式化 *Rate-1/2 Quantum LDPC Codes for Multi-tier Superconducting Hardware* 中的具体 Armillary 码实例。校验矩阵来自论文路由，距离和其他实例证书消费 Qatlib 的通用纠错码接口。 [arXiv:2611.20410v1](https://arxiv.org/abs/2611.20410v1)
 
 | 实例 | 码长 | 已在 Lean 证明 | 精确距离剩余义务 |
 | --- | ---: | --- | --- |
@@ -108,6 +108,13 @@ c++ -O3 -std=c++20 tools/search8749.cpp -o .lake/dist8749/search8749
 python3 tools/replay8749.py .lake/dist8749/X.rows .lake/dist8749/MinX.words --budget 10 --minimum
 python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 4
 ```
+
+## 后续工作
+
+- **完成精确距离的发布验收。** `p181` 的 96 个锚点候选证书已通过独立回放。全量 Lean 内核检查进行中，通过后用 16 个分包并行核验公理，再汇总为 `ArmillaryLean.CodeP181.distance_eq_sixteen`。两个锚点的试跑已验证上传、并行审计和公开 `.olean` 汇总。为 `8749` 补充成功的远端全量验收，原重建发现两个任务写入共享 `.ilean` 时出现权限错误。`9053` 的冻结制品已通过远端审计。 [p181 分包试跑](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44457135115) · [8749 重建记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44312530324) · [9053 制品与审计](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/proof-9053-v1)
+- **验证三个实例的精确 Tanner 围长。** 在已有的 X/Z 校验矩阵上，各自核验一个长度为 6 的圈，并排除长度为 4 的圈。
+- **验证精确校验秩和逻辑比特数。** 在两侧分别核验 GF(2) 秩下界证书，与结构给出的秩上界合成等式。目标分别是 `8749` 的秩 907、`k = 1822`，`9053` 的秩 1231、`k = 2470`，以及 `p181` 的秩 2170、`k = 4348`。
+- **接通正反轮的测量语义。** 由论文的 CXSWAP 与 SWAP-only 调度生成实际线路，验证门方向、迭代后的角色位置以及联合 syndrome 的测量分支。随后分别跟踪 Armillary 线路资源、线路级故障距离、硬件布局和论文噪声模型的验证。
 
 ## 本地检查
 
