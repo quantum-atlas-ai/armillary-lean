@@ -253,7 +253,7 @@ def unpack(directory, entry, into):
     archive = directory / entry["archive"]
     if digest(archive) != entry["sha256"] or archive.stat().st_size != entry["bytes"]:
         raise ValueError(f"archive digest or length mismatch: {archive.name}")
-    into.mkdir()
+    into.mkdir(exist_ok=True)
     names = {str(p) for p in proof_paths(entry["modules"])}
     with subprocess.Popen(["zstd", "-dc", "--", str(archive)], stdout=subprocess.PIPE) as proc:
         seen = set()
@@ -279,17 +279,16 @@ def audit(args, manifest):
     receipt_dir.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as tmp:
         root = Path(tmp)
-        shared, proof = root / "common", root / "proof"
-        unpack(args.directory, manifest["common"], shared)
+        proof = root / "proof"
+        unpack(args.directory, manifest["common"], proof)
         unpack(args.directory, part, proof)
-        unpacked = sum(
-            p.stat().st_size for folder in (shared, proof) for p in folder.rglob("*") if p.is_file())
+        unpacked = sum(p.stat().st_size for p in proof.rglob("*") if p.is_file())
         print(f"Auditing {len(imports)} modules with {unpacked:,} unpacked bytes. "
               f"Temporary disk has {disk_usage(root).free:,} free bytes.", flush=True)
         source = root / "P181ShardAudit.lean"
         source.write_text("module\n\nmeta import Lean\n" +
                           "".join(f"import all {name}\n" for name in imports) + AUDIT)
-        run("lean", str(source), env=get_env([proof, shared]))
+        run("lean", str(source), env=get_env([proof]))
         exported = {}
         for module in part["modules"]:
             relative = module_path(module).with_suffix(".olean")
