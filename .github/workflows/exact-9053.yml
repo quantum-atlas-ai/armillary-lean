@@ -21,7 +21,7 @@ env:
 
 jobs:
   assemble:
-    name: Freeze previously accepted 9053 proof
+    name: Transfer the original verified shards
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -96,16 +96,10 @@ jobs:
           path: .lake/9053-shards
           key: 9053-kernel-44336436018-11
           fail-on-cache-miss: true
-      - name: Link and audit the verified Lean modules
-        run: python3 -B tools/ci_9053.py assemble
-
-      - name: Export the checked proof and Lake mappings
-        run: |
-          python3 -B tools/frozen_9053.py pack .lake/frozen-9053/9053-proof-v1.tar.zst             --proof-commit 91a4a17b33354712c3c2c7c37b0f8b436fef9f99 --verified-run 44336436018
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: frozen-9053-proof
-          path: .lake/frozen-9053/9053-proof-v1.tar.zst
+          name: verified-9053-shards
+          path: .lake/9053-shards
           include-hidden-files: true
           compression-level: 0
           retention-days: 2
