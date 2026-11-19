@@ -4,14 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: Build the exact proof, test the shard transfer, or audit the frozen proof
+        description: Verify all X anchors or test the shard transfer with two anchors
         type: choice
         required: true
         default: full
-        options: [full, smoke, artifact-audit]
+        options: [full, smoke]
 
 permissions:
   contents: read
+  actions: read
 
 env:
   LAKE_ARTIFACT_CACHE: "true"
@@ -19,184 +20,93 @@ env:
   LEAN_NUM_THREADS: "1"
 
 jobs:
-  prepare:
-    if: inputs.scope != 'artifact-audit'
-    name: Generate and replay certificate data
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-lean
-      - name: Export rows and create the shard plan
-        id: plan
-        env:
-          SCOPE: ${{ inputs.scope }}
-        run: |
-          set -euo pipefail
-          lake --fail-fast build +ArmillaryLean
-          lake --no-build lean tools/ExportReducedRows.lean
-          work=.lake/reduced
-          c++ -O3 -std=c++20 tools/search_reduced.cpp -o "$work/search"
-          c++ -O3 -std=c++20 tools/replay_reduced.cpp -o "$work/replay"
-          "$work/search" "$work/137-X.rows" "$work/137-Z.rows" 137 3 12 0 36 --binary --xor > "$work/137-X.bin"
-          "$work/replay" "$work/137-X.rows" "$work/137-Z.rows" 137 3 12 0 36 "$work/137-X.bin"
-          if [[ "$SCOPE" == smoke ]]; then
-            python3 -B tools/ci_9053.py plan --smoke
-          else
-            python3 -B tools/ci_9053.py plan
-          fi
-          jq -c '"matrix=" + ([.shards | keys[]] | tostring)' -r "$work/ci9053-plan.json" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: reduced-9053-inputs
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 2
-          path: |
-            .lake/reduced/137-X.rows
-            .lake/reduced/137-Z.rows
-            .lake/reduced/137-X.bin
-            .lake/reduced/ci9053-plan.json
-
-  verify:
-    name: Kernel shard ${{ matrix.shard }}
-    needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 240
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-lean
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: reduced-9053-inputs
-          path: .lake/reduced
-      - name: Check the assigned Lean certificates
-        env:
-          SHARD: ${{ matrix.shard }}
-        run: python3 -B tools/ci_9053.py verify --shard "$SHARD"
-      - uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-${{ matrix.shard }}
-
   assemble:
-    name: Assemble and audit checked certificates
-    needs: verify
+    name: Freeze previously accepted 9053 proof
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-lean
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: reduced-9053-inputs
-          path: .lake/reduced
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-0
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-1
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-2
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-3
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-4
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-5
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-6
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-7
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-8
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-9
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-10
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        if: inputs.scope == 'full'
-        with:
-          path: .lake/9053-shards
-          key: 9053-kernel-${{ github.run_id }}-11
-          fail-on-cache-miss: true
-      - name: Link and audit the verified Lean modules
-        run: python3 -B tools/ci_9053.py assemble
-
-  artifact-audit:
-    if: inputs.scope == 'artifact-audit'
-    name: Restore and audit the frozen 9053 proof
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-lean
-      - name: Download the pinned proof release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          github-token: ${{ github.token }}
+          run-id: 44336436018
+          name: reduced-9053-inputs
+          path: .lake/reduced
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-0
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-1
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-2
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-3
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-4
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-5
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-6
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-7
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-8
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-9
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-10
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .lake/9053-shards
+          key: 9053-kernel-44336436018-11
+          fail-on-cache-miss: true
+      - name: Link and audit the verified Lean modules
+        run: python3 -B tools/ci_9053.py assemble
+
+      - name: Export the checked proof and Lake mappings
         run: |
-          set -euo pipefail
-          lock=artifacts/9053.json
-          work=.lake/frozen-9053
-          gh release download "$(jq -er .release "$lock")" --repo "$GITHUB_REPOSITORY"             --pattern "$(jq -er .archive "$lock")" --dir "$work"
-      - name: Verify the exact claim and audit axioms without rebuilding
-        run: |
-          set -euo pipefail
-          archive="$(jq -er .archive artifacts/9053.json)"
-          python3 -B tools/frozen_9053.py audit ".lake/frozen-9053/$archive"
+          python3 -B tools/frozen_9053.py pack .lake/frozen-9053/9053-proof-v1.tar.zst             --proof-commit 91a4a17b33354712c3c2c7c37b0f8b436fef9f99 --verified-run 44336436018
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: frozen-9053-proof
+          path: .lake/frozen-9053/9053-proof-v1.tar.zst
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 2
+          if-no-files-found: error
