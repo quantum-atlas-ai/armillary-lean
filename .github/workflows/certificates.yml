@@ -8,7 +8,7 @@ on:
         required: true
         type: choice
         default: 9053-anchor
-        options: [8749-exact, 9053-anchor, p181-anchor]
+        options: [8749-exact, 9053-anchor, p181-anchor, p181-split]
       sector:
         description: Check sector for an anchor run
         required: true
@@ -21,11 +21,21 @@ on:
         type: string
         default: "35"
 
+      proof-release:
+        description: Release tag holding split p181 proof artifacts
+        required: false
+        type: string
+      proof-sha256:
+        description: SHA-256 of the split p181 manifest
+        required: false
+        type: string
+
 permissions:
   contents: read
 
 jobs:
   verify:
+    if: inputs.proof != 'p181-split'
     name: Verify ${{ inputs.proof }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -92,3 +102,98 @@ jobs:
           path: |
             .lake/fast8749/build-logs/*.log
             .lake/reduced/build-logs/*.log
+
+  p181-plan:
+    if: inputs.proof == 'p181-split'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check the pinned manifest
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROOF_RELEASE: ${{ inputs.proof-release }}
+          MANIFEST_SHA: ${{ inputs.proof-sha256 }}
+        run: |
+          set -euo pipefail
+          gh release download "$PROOF_RELEASE" --pattern p181-manifest.json --dir .lake/split-audit
+          matrix="$(python3 -B tools/p181_split.py plan .lake/split-audit "$MANIFEST_SHA")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  p181-audit:
+    if: inputs.proof == 'p181-split'
+    needs: p181-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    name: Audit p181 shard ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.p181-plan.outputs.matrix) }}
+    env:
+      LAKE_ARTIFACT_CACHE: "true"
+      MATHLIB_NO_CACHE_ON_UPDATE: "1"
+      LEAN_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lean
+      - name: Restore and audit this shard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROOF_RELEASE: ${{ inputs.proof-release }}
+          MANIFEST_SHA: ${{ inputs.proof-sha256 }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          printf -v file 'p181-shard-%02d.tar.zst' "$SHARD"
+          gh release download "$PROOF_RELEASE" --dir .lake/split-audit --pattern p181-manifest.json --pattern p181-common.tar.zst --pattern "$file"
+          python3 -B tools/p181_split.py audit .lake/split-audit "$MANIFEST_SHA" "$SHARD" .lake/audited-part
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: p181-audited-part-${{ matrix.shard }}
+          path: .lake/audited-part
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  p181-join:
+    if: inputs.proof == 'p181-split'
+    needs: p181-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    name: Join the audited p181 public proofs
+    env:
+      LAKE_ARTIFACT_CACHE: "true"
+      MATHLIB_NO_CACHE_ON_UPDATE: "1"
+      LEAN_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lean
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: p181-audited-part-*
+          path: .lake/audited-parts
+      - name: Check receipt coverage and assemble the Lean theorem
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROOF_RELEASE: ${{ inputs.proof-release }}
+          MANIFEST_SHA: ${{ inputs.proof-sha256 }}
+        run: |
+          set -euo pipefail
+          gh release download "$PROOF_RELEASE" --dir .lake/split-audit --pattern p181-manifest.json --pattern p181-common.tar.zst
+          python3 -B tools/p181_split.py join .lake/split-audit "$MANIFEST_SHA" .lake/audited-parts .lake/final-proof
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: p181-assembled-proof
+          path: .lake/final-proof
+          include-hidden-files: true
+          if-no-files-found: error
