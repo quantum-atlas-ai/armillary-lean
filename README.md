@@ -8,7 +8,7 @@
 | --- | ---: | --- | --- |
 | `8749` | 3636 | `d = 12` | [精确距离定理](ArmillaryLean/Instances/MinProof8749/Exact.lean)，远端全量重建待补 |
 | `9053` | 4932 | `d = 14` | [完整远端验收与公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018) |
-| `p181` | 8688 | `d ≤ 16` | 96 个下界候选锚点已通过离线回放，[两个锚点已通过分包审计试跑](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44457135115)，全量内核验收进行中 |
+| `p181` | 8688 | `d = 16` | [分片审计与精确距离汇总](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44974973997) · [验证与复验说明](docs/p181-verification.md) |
 
 ## 形式化验证范围
 
@@ -33,9 +33,11 @@
 
 Lean 定理 `ArmillaryLean.Code9053.distance_eq_fourteen` 证明了 `cssDistance code = 14`。完整验收使用异或剪枝证书核验了全部 36 个 X 侧锚点，并汇总为模块 `ArmillaryLean.Instances.ReducedProof.Code9053.Exact`。公理审计结果为 `propext`、`Classical.choice` 和 `Quot.sound`。 [完整验收记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018) · [定理汇总与公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018/job/134946990731)
 
+Lean 定理 `ArmillaryLean.CodeP181.distance_eq_sixteen` 证明了 `cssDistance code = 16`。全部 96 个下界锚点及其 37,974 个证书页通过本地 Lean 检查。GitHub Actions 审计了固定制品的全部 16 个分片，复核覆盖后构建精确距离定理，公理依赖为 `propext`、`Classical.choice` 和 `Quot.sound`。 [最终汇总及公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44974973997/job/137064402518) · [固定制品](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/p181-proof-v1)
+
 ### 约简证书生成与核验
 
-两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂、稳定子交叠及异或 packing。校验行表与 Lean 源路由一致，且已有实际锚点与交叠叶通过内核验证。`p181` 的精确等式仍需其余锚点通过内核检查。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
+两个实例全部 168 个 X/Z 锚点已有候选树，并通过独立离线回放。Lean 的约简检查器支持校验行封闭、packing、分裂、稳定子交叠及异或 packing。Lean 对照源路由核对校验行表，并检查各实例精确距离证明需要的锚点。 [检查器](ArmillaryLean/Certificates/Reduced.lean) · [源路由表示](ArmillaryLean/Instances/ReducedNumeric.lean)
 
 完成本仓默认构建后，可生成两个实例的证书并独立回放。最后两个命令调度正式内核检查，并在全部目标通过后构建相应精确距离模块。大部分运行时间在编号较小的锚点，日志写入 `.lake/reduced/build-logs`。
 
@@ -120,7 +122,7 @@ python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 4
 
 ## 后续工作
 
-- **完成精确距离的发布验收。** `p181` 的 96 个锚点候选证书已通过独立回放。全量 Lean 内核检查进行中，通过后用 16 个分包并行核验公理，再汇总为 `ArmillaryLean.CodeP181.distance_eq_sixteen`。两个锚点的试跑已验证上传、并行审计和公开 `.olean` 汇总。为 `8749` 补充成功的远端全量验收，原重建发现两个任务写入共享 `.ilean` 时出现权限错误。`9053` 的冻结制品已通过远端审计。 [p181 分包试跑](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44457135115) · [8749 重建记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44312530324) · [9053 制品与审计](https://github.com/quantum-atlas-ai/armillary-lean/releases/tag/proof-9053-v1)
+- **补充 `8749` 的远端全量重建验收。** 上一次重建中，两个任务写入共享 `.ilean` 时出现权限错误。 [重建记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44312530324)
 - **验证三个实例的精确 Tanner 围长。** 在已有的 X/Z 校验矩阵上，各自核验一个长度为 6 的圈，并排除长度为 4 的圈。
 - **验证精确校验秩和逻辑比特数。** 在两侧分别核验 GF(2) 秩下界证书，与结构给出的秩上界合成等式。目标分别是 `8749` 的秩 907、`k = 1822`，`9053` 的秩 1231、`k = 2470`，以及 `p181` 的秩 2170、`k = 4348`。
 - **接通正反轮的测量语义。** 由论文的 CXSWAP 与 SWAP-only 调度生成实际线路，验证门方向、迭代后的角色位置以及联合 syndrome 的测量分支。随后分别跟踪 Armillary 线路资源、线路级故障距离、硬件布局和论文噪声模型的验证。
@@ -138,9 +140,9 @@ lake build +ArmillaryLean
 python3 tools/audit_axioms.py
 ```
 
-`Lean CI` 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。仅改动根目录 `README.md` 时跳过自动构建，也可按需手动触发。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。 [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
+`Lean CI` 在推送和拉取请求上构建本仓、检查内核证书样例并审计传递公理。仅改动根目录 `README.md` 时跳过自动构建，也可按需手动触发。`Kernel certificates` 工作流可手动重建并核验 `8749` 的完整证明，或选取 `9053`、`p181` 的一个 sector 和锚点进行核验。锚点运行的构建日志随本次运行保存。`p181-split` 模式从发布制品执行完整公理审计和最终定理汇总。 [p181 复验命令](docs/p181-verification.md#重跑云端审计) [Lean CI](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/ci.yml) · [Kernel certificates](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/certificates.yml)
 
-`Exact 9053 distance` 工作流用异或剪枝生成 X 侧的 36 个证书，分片验收后汇总并审计精确距离定理。 [完整 9053 验收](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/exact-9053.yml)
+`Exact 9053 distance` 工作流用异或剪枝生成 X 侧的 36 个证书，分片验收后汇总并审计精确距离定理。 [完整 9053 验收](https://github.com/quantum-atlas-ai/armillary-lean/actions/workflows/exact-9053.yml) · [冻结制品的远端审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44451282907)
 
 ## 许可
 
