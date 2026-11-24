@@ -6,7 +6,7 @@
 
 | 实例 | 码长 | 已在 Lean 证明 | 验收记录 |
 | --- | ---: | --- | --- |
-| `8749` | 3636 | `d = 12` | [精确距离定理](ArmillaryLean/Instances/MinProof8749/Exact.lean)，远端全量重建待补 |
+| `8749` | 3636 | `d = 12`，X/Z 秩 `907`，`k = 1822`，Tanner 围长 `6` | [精确距离定理](ArmillaryLean/Instances/MinProof8749/Exact.lean)，远端全量重建待补 · [精确秩与逻辑比特数](ArmillaryLean/Instances/Rank8749.lean) · [Tanner 围长](ArmillaryLean/Instances/Girth8749.lean) |
 | `9053` | 4932 | `d = 14` | [完整远端验收与公理审计](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44336436018) |
 | `p181` | 8688 | `d = 16` | [分片审计与精确距离汇总](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44974973997) · [验证与复验说明](docs/p181-verification.md) |
 
@@ -17,7 +17,9 @@
 3. **排除更低重量的逻辑算符。** Lean 证明零综合征支撑必有偶数重量，并用平移对称性把待排除的支撑归约到有限个锚点，即归约后必须包含的指定坐标。`9053` 和 `p181` 还用稳定子减重保留逻辑等价类。证书排除各锚点下的低重量候选后，下界定理与上界合成精确距离。 [8749 下界](ArmillaryLean/Instances/Lower8749.lean) · [归约定理](ArmillaryLean/Instances/RoutedAnchors.lean) · [精确距离接口](ArmillaryLean/Instances/ReducedDistances.lean)
 4. **检查证书和证明依赖。** 仓库提供候选证书的搜索和独立回放工具。Lean 核对证书使用的校验行与源矩阵，并通过检查器的可靠性定理把接受结果转成排除结论。验收记录分别标明离线回放、Lean 内核检查和公理审计；公理审计只允许 `propext`、`Classical.choice` 和 `Quot.sound`。 [8749 数值检查器](ArmillaryLean/Certificates/Numeric.lean) · [约简检查器](ArmillaryLean/Certificates/Reduced.lean) · [公理审计脚本](tools/audit_axioms.py)
 
-现有定理覆盖静态 CSS 构造和距离。精确校验秩、逻辑比特数、Tanner 围长、实际综合征提取线路及硬件噪声模型列在[后续工作](#后续工作)。
+5. **验证 `8749` 的精确秩与 Tanner 围长。** Qatlib 的置换块定理给出每侧两个独立关系的秩上界；下界取 907 行、907 列的非奇异子式，Lean 内核逐项核对每个入选列确实被该行访问，再按行异或子式右逆的打包行得到单位向量。四圈排除归结为两个保留组在两个块上的相对路由在 station zero 互异，六圈由显式闭途径见证。 [打包右逆](ArmillaryLean/Certificates/PackedRank.lean) · [秩与逻辑比特数](ArmillaryLean/Instances/Rank8749.lean) · [Tanner 围长](ArmillaryLean/Instances/Girth8749.lean)
+
+现有定理覆盖静态 CSS 构造和距离；`8749` 另已证明精确校验秩、逻辑比特数和 Tanner 围长。`9053` 与 `p181` 的对应结论、实际综合征提取线路及硬件噪声模型列在[后续工作](#后续工作)。
 
 ## 数据来源
 
@@ -72,6 +74,19 @@ Lean 定理 `ArmillaryLean.Code8749.distance_eq_twelve` 证明了 `cssDistance c
 
 [`Css8749.lean`](ArmillaryLean/Instances/Css8749.lean) 核验块配对并构造具体 CSS 码。[`Upper8749.lean`](ArmillaryLean/Instances/Upper8749.lean) 对三个保留 Z 校验组逐一核验支撑的成对抵消，再用块 `0` 和 `3` 上的分离向量排除 X 稳定子行空间，得出 `distance_le_twelve`。
 
+### 精确秩与 Tanner 围长
+
+[`Rank8749.lean`](ArmillaryLean/Instances/Rank8749.lean) 证明 `Matrix.rank xChecks = 907` 与 `Matrix.rank zChecks = 907`，并经 Qatlib 的 `encoded_eq` 得出 `code.encodedQubits = 1822`。上界来自 Qatlib 的 `perm_rank_add`：每个列块在三个保留组中各有一个 1，因此留下两个独立关系。[`Girth8749.lean`](ArmillaryLean/Instances/Girth8749.lean) 在两侧 Tanner 图上排除四圈并给出长度为 6 的圈，由 Qatlib 的 `girth_six` 得出 `egirth = 6`。
+
+Qatlib 的通用 `checkRank` 在这一规模上不可行。对本实例的方子式，`decide +kernel` 在 40 × 40 时约用 75 秒内核时间和 5.7 GB 内存，在 80 × 80 时约用 272 秒和 16 GB。秩下界因此改用更紧凑的证书。`tools/build_rank8749.py` 读取导出的校验行，按地址顺序处理各行，把每行消去后最低位的列记为入选列，连同对应的行为一个 907 × 907 的子式；随后对子式做 Gauss–Jordan 消元，把右逆的每一行存成一个 907 位的字。[`RankData8749`](ArmillaryLean/Instances/RankData8749/X.lean) 下的表都是 1024 个叶子的完全二叉查找树，因为内核读取一个叶子只需十步，而每次读取大数组字面量的一个元素都很慢。Lean 对照源路由核对每个记录的关联，并检查每条入选行异或对应的右逆行得到单位向量。X、Z 两侧分别记录 2714 和 2716 个关联，右逆各含约 41.1 万个 1。
+
+```bash
+lake --no-build lean tools/ExportRows8749.lean
+python3 tools/build_rank8749.py .lake/dist8749
+```
+
+四圈排除同样避开逐项枚举。两条不同的校验行构成四圈，当且仅当两个不同的块把同一个内部坐标映到同一对值；相对路由只整体平移 station，所以只需核对 station zero 上的三个通道。本机 4 线程下，`Rank8749` 约用 125 秒，峰值内存约 4.6 GB；`Girth8749` 约用 25 秒。
+
 ## 下界证书
 
 [`Lower8749.lean`](ArmillaryLean/Instances/Lower8749.lean) 证明源校验矩阵的零 syndrome 等价于稀疏邻域偶交叠，并推出偶重量与 station-zero 锚点归约。[`Exact8749.lean`](ArmillaryLean/Instances/Exact8749.lean) 证明两套锚点排除结论足以与已验证的上界合成精确距离。
@@ -123,19 +138,21 @@ python3 tools/build_min8749.py .lake/dist8749/MinX.words --jobs 4
 ## 后续工作
 
 - **补充 `8749` 的远端全量重建验收。** 上一次重建中，两个任务写入共享 `.ilean` 时出现权限错误。 [重建记录](https://github.com/quantum-atlas-ai/armillary-lean/actions/runs/44312530324)
-- **验证三个实例的精确 Tanner 围长。** 在已有的 X/Z 校验矩阵上，各自核验一个长度为 6 的圈，并排除长度为 4 的圈。
-- **验证精确校验秩和逻辑比特数。** 在两侧分别核验 GF(2) 秩下界证书，与结构给出的秩上界合成等式。目标分别是 `8749` 的秩 907、`k = 1822`，`9053` 的秩 1231、`k = 2470`，以及 `p181` 的秩 2170、`k = 4348`。
+- **验证 `9053` 和 `p181` 的精确 Tanner 围长。** `8749` 已在两侧核验；其余两个实例仍需在已有的 X/Z 校验矩阵上各自核验一个长度为 6 的圈，并排除长度为 4 的圈。
+- **验证 `9053` 和 `p181` 的精确校验秩和逻辑比特数。** `8749` 的秩 907、`k = 1822` 已证明；其余两个实例仍需在两侧分别核验 GF(2) 秩下界证书，与结构给出的秩上界合成等式。目标分别是 `9053` 的秩 1231、`k = 2470`，以及 `p181` 的秩 2170、`k = 4348`。
 - **接通正反轮的测量语义。** 由论文的 CXSWAP 与 SWAP-only 调度生成实际线路，验证门方向、迭代后的角色位置以及联合 syndrome 的测量分支。随后分别跟踪 Armillary 线路资源、线路级故障距离、硬件布局和论文噪声模型的验证。
 
 ## 本地检查
 
-Lean 工具链固定为 `v4.35.0`，`Qatlib` 固定为 `5c88a0b7275769d44542d0a371a5af8f8841cbae`。本仓用 Lake 检查 `ArmillaryLean`，并消费上游的预编译制品。首次检出时先准备锁定版本的依赖缓存。 [Qatlib 缓存指南](https://github.com/quantum-atlas-ai/qatlib/blob/5c88a0b7275769d44542d0a371a5af8f8841cbae/docs/getting-started.md)
+Lean 工具链固定为 `v4.35.0`，`Qatlib` 固定为 `f76f71a7c5cd19a31c251d0feeab09c75a758d69`。本仓用 Lake 检查 `ArmillaryLean`，并消费上游的预编译制品。首次检出时先准备锁定版本的依赖缓存。 [Qatlib 缓存指南](https://github.com/quantum-atlas-ai/qatlib/blob/f76f71a7c5cd19a31c251d0feeab09c75a758d69/docs/getting-started.md)
 
 在仓库根目录先用 `--no-build` 确认两个上游入口的缓存可用。通过后构建本仓顶层导入。
 
 ```bash
 lake --no-build build +Qatlib.Papers.Armillary26.Instances.Routed \
-  +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance
+  +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance \
+  +Qatlib.Concepts.CodeCert.RankCert.Binary \
+  +Qatlib.Concepts.CodeCert.DistCert.Tanner
 lake build +ArmillaryLean
 python3 tools/audit_axioms.py
 ```
