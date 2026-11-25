@@ -10,7 +10,7 @@ warningAsError = true
 [[require]]
 name = "Qatlib"
 git = "https://github.com/quantum-atlas-ai/qatlib.git"
-rev = "5c88a0b7275769d44542d0a371a5af8f8841cbae"
+rev = "f76f71a7c5cd19a31c251d0feeab09c75a758d69"
 
 [[lean_lib]]
 name = "ArmillaryLean"

@@ -20,7 +20,8 @@ runs:
       run: |
         set -euo pipefail
         lean --version
-        deps=(+Qatlib.Papers.Armillary26.Instances.Routed +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance)
+        deps=(+Qatlib.Papers.Armillary26.Instances.Routed +Qatlib.Concepts.ErrorCorrection.LogicalOps.Distance
+          +Qatlib.Concepts.CodeCert.RankCert.Binary +Qatlib.Concepts.CodeCert.DistCert.Tanner)
         if ! lake --no-build build "${deps[@]}"; then
           lake exe get_cache
           lake --no-build build "${deps[@]}"
